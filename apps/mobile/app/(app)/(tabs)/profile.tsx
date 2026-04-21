@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '@/components/ThemeContext';
 import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { ProfileForm } from '@/components/ProfileForm';
-import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
 import { trpc } from '@/lib/trpc';
 
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
                 onPress={() => setIsEditing(true)}
                 style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
                 className="flex-1 items-center rounded-[18px] bg-tint py-[15px]">
-                <Text className="text-[15px] font-black text-[#FFF8EC]">Editar perfil</Text>
+                <Text className="text-[15px] font-black text-on-tint">Editar perfil</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push('/settings' as any)}
@@ -228,12 +228,10 @@ function PublicProfilePreview({
 
       <SectionHeader loading={isLoading} title="Tus próximas quedadas públicas" />
       {!isLoading && upcomingMeetups.length === 0 ? (
-        <AppCard>
-          <Text className="text-[22px] font-black text-text">Sin quedadas próximas.</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            Cuando crees o confirmes una quedada, aparecerá en tu ficha pública.
-          </Text>
-        </AppCard>
+        <EmptyState
+          title="Sin quedadas próximas."
+          body="Cuando crees o confirmes una quedada, aparecerá en tu ficha pública."
+        />
       ) : null}
       {upcomingMeetups.map((meetup) => (
         <AppCard key={meetup.id}>

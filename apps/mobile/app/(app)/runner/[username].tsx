@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 
 import { usePullToRefresh } from '@/components/usePullToRefresh';
-import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
 import { trpc } from '@/lib/trpc';
 
 type AvailabilitySlot = {
@@ -126,12 +126,10 @@ export default function PublicRunnerScreen() {
       <SectionHeader loading={runnerQuery.isPending} title="Próximas quedadas" />
 
       {!runnerQuery.isPending && runnerQuery.data?.upcomingMeetups.length === 0 ? (
-        <AppCard>
-          <Text className="text-[22px] font-black text-text">Sin quedadas próximas.</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            Cuando este runner cree o confirme una quedada pública, aparecerá aquí.
-          </Text>
-        </AppCard>
+        <EmptyState
+          title="Sin quedadas próximas."
+          body="Cuando este runner cree o confirme una quedada pública, aparecerá aquí."
+        />
       ) : null}
 
       {runnerQuery.data?.upcomingMeetups.map((meetup) => (

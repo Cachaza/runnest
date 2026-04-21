@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { z } from 'zod';
@@ -28,6 +28,8 @@ type MeetupFormValues = {
 
 export default function ModalScreen() {
   const { colors } = useAppTheme();
+  const params = useLocalSearchParams<{ communityId?: string }>();
+  const initialCommunityId = Array.isArray(params.communityId) ? params.communityId[0] : params.communityId;
   const utils = trpc.useUtils();
   const [formError, setFormError] = useState<string | null>(null);
   const communitiesQuery = trpc.communities.hostable.useQuery();
@@ -54,6 +56,12 @@ export default function ModalScreen() {
     () => communitiesQuery.data?.find((community) => community.id === selectedCommunityId) ?? null,
     [communitiesQuery.data, selectedCommunityId],
   );
+
+  useEffect(() => {
+    if (initialCommunityId) {
+      setValue('communityId', initialCommunityId);
+    }
+  }, [initialCommunityId, setValue]);
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -215,7 +223,7 @@ export default function ModalScreen() {
           onPress={onSubmit}
           style={({ pressed }) => ({ opacity: pressed ? 0.85 : createMeetup.isPending ? 0.7 : 1 })}
           className={`mt-[18px] items-center rounded-[18px] bg-tint py-4`}>
-          <Text className="text-base font-black text-[#FFF8EC]">
+           <Text className="text-base font-black text-on-tint">
             {createMeetup.isPending ? 'Publicando...' : 'Publicar quedada'}
           </Text>
         </Pressable>

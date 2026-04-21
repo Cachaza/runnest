@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -6,7 +6,13 @@ import { z } from 'zod';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { AppButton, AppCard, Chip, ScreenScroll } from '@/components/ui/AppUI';
-import { labelForCommunityKind } from '@/lib/community-labels';
+import {
+  descriptionForCommunityKind,
+  labelForCommunityKind,
+  labelForMode,
+  labelForVisibility,
+  recommendedSetupForCommunityKind,
+} from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 const communitySchema = z.object({
@@ -84,6 +90,8 @@ export default function CommunityNewScreen() {
   const cityQuery = useWatch({ control, name: 'city' });
   const selectedCity = useWatch({ control, name: 'citySelection' });
   const selectedKind = useWatch({ control, name: 'kind' });
+  const selectedMode = useWatch({ control, name: 'mode' });
+  const selectedVisibility = useWatch({ control, name: 'visibility' });
   const municipalityQuery = trpc.geo.searchMunicipalities.useQuery(
     { query: cityQuery ?? '', limit: 6 },
     {
@@ -94,8 +102,8 @@ export default function CommunityNewScreen() {
 
   const modeOptions = useMemo(
     () => [
-      { label: 'Collaborative', value: 'collaborative' as const },
-      { label: 'Managed', value: 'managed' as const },
+      { label: 'Colaborativo', value: 'collaborative' as const },
+      { label: 'Dirigido', value: 'managed' as const },
     ],
     [],
   );
@@ -106,6 +114,15 @@ export default function CommunityNewScreen() {
     ],
     [],
   );
+  const recommendedSetup = useMemo(
+    () => recommendedSetupForCommunityKind(selectedKind),
+    [selectedKind],
+  );
+
+  useEffect(() => {
+    setValue('mode', recommendedSetup.mode);
+    setValue('visibility', recommendedSetup.visibility);
+  }, [recommendedSetup.mode, recommendedSetup.visibility, setValue]);
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -246,21 +263,26 @@ export default function CommunityNewScreen() {
             control={control}
             name="kind"
             render={({ field: { onChange, value } }) => (
-              <View className="flex-row flex-wrap gap-2.5">
+              <View className="gap-2.5">
                 {(['crew_local', 'creator_community', 'club', 'training_group'] as const).map((kind) => (
-                  <Chip
+                  <Pressable
                     key={kind}
-                    selected={value === kind}
                     onPress={() => {
                       onChange(kind);
                       setFormError(null);
-                    }}>
-                    {labelForCommunityKind(kind)}
-                  </Chip>
+                    }}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.78 : 1 })}
+                    className={`rounded-[22px] border p-4 ${value === kind ? 'border-tint bg-chip' : 'border-border bg-background'}`}>
+                    <Text className="text-[18px] font-black text-text">{labelForCommunityKind(kind)}</Text>
+                    <Text className="mt-1.5 text-[15px] leading-[23px] text-muted-text">
+                      {descriptionForCommunityKind(kind)}
+                    </Text>
+                  </Pressable>
                 ))}
               </View>
             )}
           />
+          <Text className="text-sm font-bold leading-5 text-muted-text">{recommendedSetup.accessLinkCopy}</Text>
         </View>
 
         <View className="mt-4 gap-1.5">
@@ -289,6 +311,9 @@ export default function CommunityNewScreen() {
               ? 'Para crews locales suele encajar collaborative si quieres que los miembros propongan runs.'
               : 'Para espacios de creator o club suele encajar managed si quieres controlar quién publica runs oficiales.'}
           </Text>
+          <Text className="text-sm font-bold leading-5 text-muted-text">
+            Selección actual: {labelForMode(selectedMode)}.
+          </Text>
         </View>
 
         <View className="mt-4 gap-1.5">
@@ -312,6 +337,9 @@ export default function CommunityNewScreen() {
               </View>
             )}
           />
+          <Text className="text-sm font-bold leading-5 text-muted-text">
+            Selección actual: {labelForVisibility(selectedVisibility)}.
+          </Text>
         </View>
       </AppCard>
 

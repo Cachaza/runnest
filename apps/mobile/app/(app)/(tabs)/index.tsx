@@ -1,9 +1,10 @@
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Link } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { usePullToRefresh } from '@/components/usePullToRefresh';
-import { AppCard, Chip, HeroPanel, ScreenScroll } from '@/components/ui/AppUI';
+import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
 import { labelForCommunityKind } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
@@ -60,12 +61,14 @@ export default function TodayScreen() {
 
       <View className="flex-row gap-3">
         <View className="min-h-[110px] flex-1 rounded-card border border-border bg-surface p-4">
+          <FontAwesome6 name="stopwatch" size={16} color={colors.tint} style={{ marginBottom: 8 }} />
           <Text className="text-[22px] font-black leading-7 text-text">
             {profile?.pace ?? 'Pendiente'}
           </Text>
           <Text className="mt-2 text-[13px] font-bold uppercase text-muted-text">ritmo base</Text>
         </View>
         <View className="min-h-[110px] flex-1 rounded-card border border-border bg-surface p-4">
+          <FontAwesome6 name="location-dot" size={16} color={colors.tint} style={{ marginBottom: 8 }} />
           <Text className="text-[22px] font-black leading-7 text-text">
             {profile?.city ?? 'Ciudad'}
           </Text>
@@ -129,7 +132,7 @@ export default function TodayScreen() {
           <Pressable
             style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             className="mt-2 items-center rounded-2xl bg-hero-accent py-3.5">
-            <Text className="text-[15px] font-black text-[#1A1410]">Crear quedada</Text>
+            <Text className="text-[15px] font-black text-on-accent">Crear quedada</Text>
           </Pressable>
         </Link>
       </View>

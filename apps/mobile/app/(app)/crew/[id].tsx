@@ -1,12 +1,12 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { usePullToRefresh } from '@/components/usePullToRefresh';
-import { AppButton, AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
-import { labelForCommunityKind, lowerLabelForCommunityKind } from '@/lib/community-labels';
+import { AppButton, AppCard, Chip, EmptyState, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { labelForCommunityKind, labelForMode, labelForVisibility, lowerLabelForCommunityKind } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 function formatMeetupLabel(startsAt: string | Date) {
@@ -44,16 +44,30 @@ function inviteRoleOptionsForViewer(role?: string | null) {
 function roleLabel(role?: string | null) {
   switch (role) {
     case 'owner':
-      return 'Owner';
+      return 'Propietario';
     case 'admin':
       return 'Admin';
     case 'moderator':
-      return 'Moderator';
+      return 'Moderador';
     case 'host':
       return 'Host';
     case 'member':
     default:
-      return 'Member';
+      return 'Miembro';
+  }
+}
+
+function accessClaimStatusLabel(status: 'pending' | 'approved' | 'rejected' | 'cancelled') {
+  switch (status) {
+    case 'approved':
+      return 'Aprobado';
+    case 'rejected':
+      return 'Rechazado';
+    case 'cancelled':
+      return 'Cancelado';
+    case 'pending':
+    default:
+      return 'Pendiente';
   }
 }
 
@@ -435,10 +449,18 @@ export default function CrewDetailScreen() {
             <View className="flex-row flex-wrap gap-2.5">
               {community.pace ? <Chip tone="cool">{community.pace}</Chip> : null}
               {community.vibe ? <Chip tone="neutral">{community.vibe}</Chip> : null}
-              <Chip tone="warm">{community.mode === 'collaborative' ? 'Collaborative' : 'Managed'}</Chip>
-              <Chip tone="neutral">{community.visibility === 'public' ? 'Public' : 'Private'}</Chip>
+              <Chip tone="warm">{labelForMode(community.mode)}</Chip>
+              <Chip tone="neutral">{labelForVisibility(community.visibility)}</Chip>
               {community.viewerMembershipRole ? <Chip tone="warm">{roleLabel(community.viewerMembershipRole)}</Chip> : null}
             </View>
+
+            {community.viewerCanCreateRuns ? (
+              <AppButton
+                disabled={isMutatingStaff}
+                onPress={() => router.push({ pathname: '/modal', params: { communityId } } as any)}>
+                Crear quedada en esta comunidad
+              </AppButton>
+            ) : null}
 
             {community.visibility === 'public' ? (
               <AppButton
@@ -496,12 +518,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title="Invitaciones pendientes" />
 
           {!communityQuery.isPending && communityQuery.data?.pendingInvites.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin invitaciones pendientes.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Las invitaciones por username activas aparecerán aquí hasta que se acepten, rechacen o cancelen.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin invitaciones pendientes."
+              body="Las invitaciones por username activas aparecerán aquí hasta que se acepten, rechacen o cancelen."
+            />
           ) : null}
 
           {communityQuery.data?.pendingInvites.map((invite) => (
@@ -533,6 +553,15 @@ export default function CrewDetailScreen() {
             <Text className="text-[15px] leading-[23px] text-muted-text">
               Crea códigos reutilizables para compartir en bio, stories o mensajes directos. Puedes exigir aprobación
               antes de aceptar a la gente.
+            </Text>
+            <Text className="text-sm font-bold leading-5 text-muted-text">
+              {community.kind === 'creator_community'
+                ? 'Creator community: approval recomendado por defecto para no abrir acceso masivo sin filtro.'
+                : community.kind === 'club' && community.visibility === 'private'
+                  ? 'Club privado: los access links se fuerzan con approval para proteger la entrada.'
+                  : community.kind === 'crew_local' && community.visibility === 'public'
+                    ? 'Crew local pública: un link abierto puede funcionar bien, pero compártelo solo si quieres auto-join.'
+                    : 'Si compartes un link abierto, cualquiera con el código podrá intentar entrar.'}
             </Text>
 
             <TextInput
@@ -585,12 +614,12 @@ export default function CrewDetailScreen() {
               <Chip
                 selected={!accessLinkRequiresApproval}
                 onPress={() => setAccessLinkRequiresApproval(false)}>
-                Auto join
+                Acceso directo
               </Chip>
               <Chip
                 selected={accessLinkRequiresApproval}
                 onPress={() => setAccessLinkRequiresApproval(true)}>
-                Requires approval
+                Con aprobación
               </Chip>
             </View>
 
@@ -600,12 +629,10 @@ export default function CrewDetailScreen() {
           </AppCard>
 
           {!communityQuery.isPending && communityQuery.data?.accessLinks.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin access links activos.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Crea uno para compartir acceso reutilizable fuera o dentro de la app.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin access links activos."
+              body="Crea uno para compartir acceso reutilizable fuera o dentro de la app."
+            />
           ) : null}
 
           {communityQuery.data?.accessLinks.map((accessLink) => (
@@ -620,7 +647,7 @@ export default function CrewDetailScreen() {
                 <Chip tone="warm">{roleLabel(accessLink.defaultRole)}</Chip>
               </View>
               <View className="mt-2 flex-row flex-wrap gap-2.5">
-                <Chip tone="cool">{accessLink.requiresApproval ? 'Approval' : 'Auto join'}</Chip>
+                <Chip tone="cool">{accessLink.requiresApproval ? 'Con aprobación' : 'Auto join'}</Chip>
                 <Chip tone="neutral">
                   {accessLink.maxUses ? `${accessLink.usesCount}/${accessLink.maxUses}` : `${accessLink.usesCount} usos`}
                 </Chip>
@@ -656,12 +683,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title="Atribución por origen" />
 
           {!communityQuery.isPending && communityQuery.data?.accessLinkSources.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin datos de atribución todavía.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Cuando uses links con `sourceLabel`, aquí verás qué canal trae más uso y más aprobaciones.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin datos de atribución todavía."
+              body="Cuando uses links con sourceLabel, aquí verás qué canal trae más uso y más aprobaciones."
+            />
           ) : null}
 
           {communityQuery.data?.accessLinkSources.map((source) => (
@@ -685,12 +710,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title="Solicitudes de access link" />
 
           {!communityQuery.isPending && communityQuery.data?.pendingAccessClaims.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin solicitudes pendientes.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Las solicitudes que entren por links con aprobación aparecerán aquí.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin solicitudes pendientes."
+              body="Las solicitudes que entren por links con aprobación aparecerán aquí."
+            />
           ) : null}
 
           {communityQuery.data?.pendingAccessClaims.map((claim) => (
@@ -710,7 +733,7 @@ export default function CrewDetailScreen() {
                   onPress={() => approveAccessClaimMutation.mutateAsync({ claimId: claim.id })}
                   style={({ pressed }) => ({ opacity: pressed ? 0.75 : isMutatingStaff ? 0.7 : 1 })}
                   className="flex-1 items-center rounded-[18px] bg-tint py-[15px]">
-                  <Text className="text-[15px] font-black text-[#FFF8EC]">Aprobar</Text>
+                  <Text className="text-[15px] font-black text-on-tint">Aprobar</Text>
                 </Pressable>
                 <Pressable
                   disabled={isMutatingStaff}
@@ -722,18 +745,45 @@ export default function CrewDetailScreen() {
               </View>
             </AppCard>
           ))}
+
+          <SectionHeader loading={communityQuery.isPending} title="Historial reciente de claims" />
+
+          {!communityQuery.isPending && communityQuery.data?.recentAccessClaims.length === 0 ? (
+            <EmptyState
+              title="Sin historial todavía."
+              body="Cuando alguien use un access link, aquí verás el estado final o pendiente de su solicitud."
+            />
+          ) : null}
+
+          {communityQuery.data?.recentAccessClaims.map((claim) => (
+            <AppCard key={claim.id}>
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-[22px] font-black text-text">{claim.userName}</Text>
+                  <Text className="mt-[3px] text-sm font-bold text-muted-text">
+                    @{claim.username} · {claim.sourceLabel || claim.accessLinkCode}
+                  </Text>
+                </View>
+                <Chip tone={claim.status === 'approved' ? 'warm' : claim.status === 'pending' ? 'cool' : 'neutral'}>
+                  {accessClaimStatusLabel(claim.status)}
+                </Chip>
+              </View>
+              <Text className="mt-2 text-[15px] leading-[23px] text-muted-text">
+                Solicitud {formatShortDate(claim.requestedAt)}
+                {claim.reviewedAt ? ` · revisión ${formatShortDate(claim.reviewedAt)}` : ''}
+              </Text>
+            </AppCard>
+          ))}
         </>
       ) : null}
 
       <SectionHeader loading={communityQuery.isPending} title="Próximas quedadas" />
 
       {!communityQuery.isPending && communityQuery.data?.upcomingMeetups.length === 0 ? (
-        <AppCard>
-          <Text className="text-[22px] font-black text-text">Sin quedadas futuras.</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            Cuando esta {entityLabelLower} publique una salida o preparación de carrera, aparecerá aquí.
-          </Text>
-        </AppCard>
+        <EmptyState
+          title="Sin quedadas futuras."
+          body={`Cuando esta ${entityLabelLower} publique una salida o preparación de carrera, aparecerá aquí.`}
+        />
       ) : null}
 
       {communityQuery.data?.upcomingMeetups.map((meetup) => (
@@ -765,12 +815,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title="Miembros" />
 
           {!communityQuery.isPending && communityQuery.data?.members.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin miembros visibles.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Los miembros aparecerán aquí cuando formen parte activa de la comunidad.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin miembros visibles."
+              body="Los miembros aparecerán aquí cuando formen parte activa de la comunidad."
+            />
           ) : null}
 
           {communityQuery.data?.members.map((communityMember) => (
@@ -836,12 +884,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title={`Runners en esta ${entityLabelLower}`} />
 
           {!communityQuery.isPending && communityQuery.data?.activeRunners.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Aún sin runners públicos.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Los runners aparecerán cuando creen o confirmen quedadas de esta comunidad.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Aún sin runners públicos."
+              body="Los runners aparecerán cuando creen o confirmen quedadas de esta comunidad."
+            />
           ) : null}
 
           {communityQuery.data?.activeRunners.map((runner) => (
@@ -873,12 +919,10 @@ export default function CrewDetailScreen() {
           <SectionHeader loading={communityQuery.isPending} title="Bloqueos" />
 
           {!communityQuery.isPending && communityQuery.data?.blockedUsers.length === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin usuarios bloqueados.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Los bloqueos activos aparecerán aquí para que el staff pueda revisarlos.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin usuarios bloqueados."
+              body="Los bloqueos activos aparecerán aquí para que el staff pueda revisarlos."
+            />
           ) : null}
 
           {communityQuery.data?.blockedUsers.map((blockedUser) => (

@@ -30,9 +30,9 @@ type ChoiceOption = {
   value: string;
 };
 
-type AvailabilityDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-type AvailabilityPeriod = 'morning' | 'midday' | 'afternoon' | 'evening';
-type AvailabilitySlot = {
+export type AvailabilityDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export type AvailabilityPeriod = 'morning' | 'midday' | 'afternoon' | 'evening';
+export type AvailabilitySlot = {
   day: AvailabilityDay;
   period: AvailabilityPeriod;
 };
@@ -87,14 +87,14 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-const LEVEL_OPTIONS: ChoiceOption[] = [
+export const LEVEL_OPTIONS: ChoiceOption[] = [
   { label: 'Empiezo ahora', value: 'Principiante' },
   { label: 'Salgo semanal', value: 'Intermedio' },
   { label: 'Plan constante', value: 'Avanzado' },
   { label: 'Competitivo', value: 'Competitivo' },
 ];
 
-const DISTANCE_OPTIONS: ChoiceOption[] = [
+export const DISTANCE_OPTIONS: ChoiceOption[] = [
   { label: '5K', value: '5K' },
   { label: '10K', value: '10K' },
   { label: '15K', value: '15K' },
@@ -102,7 +102,7 @@ const DISTANCE_OPTIONS: ChoiceOption[] = [
   { label: 'Maratón', value: 'Maratón' },
 ];
 
-const GOAL_OPTIONS: ChoiceOption[] = [
+export const GOAL_OPTIONS: ChoiceOption[] = [
   { label: 'Social', value: 'Conocer gente' },
   { label: 'Primer 10K', value: 'Primer 10K' },
   { label: 'Constancia', value: 'Ser constante' },
@@ -110,7 +110,7 @@ const GOAL_OPTIONS: ChoiceOption[] = [
   { label: 'Carreras', value: 'Preparar carreras' },
 ];
 
-const AVAILABILITY_DAYS: { label: string; value: AvailabilityDay }[] = [
+export const AVAILABILITY_DAYS: { label: string; value: AvailabilityDay }[] = [
   { label: 'L', value: 'mon' },
   { label: 'M', value: 'tue' },
   { label: 'X', value: 'wed' },
@@ -120,7 +120,7 @@ const AVAILABILITY_DAYS: { label: string; value: AvailabilityDay }[] = [
   { label: 'D', value: 'sun' },
 ];
 
-const AVAILABILITY_PERIODS: { label: string; value: AvailabilityPeriod }[] = [
+export const AVAILABILITY_PERIODS: { label: string; value: AvailabilityPeriod }[] = [
   { label: 'Mañana', value: 'morning' },
   { label: 'Mediodía', value: 'midday' },
   { label: 'Tarde', value: 'afternoon' },
@@ -177,7 +177,7 @@ function normalizeAvailabilitySlots(slots?: AvailabilitySlot[] | null) {
   return Array.isArray(slots) ? slots : [];
 }
 
-function formatAvailability(slots: AvailabilitySlot[]) {
+export function formatAvailability(slots: AvailabilitySlot[]) {
   if (slots.length === 0) {
     return undefined;
   }
@@ -524,7 +524,7 @@ export function ProfileForm({
         onPress={onSubmit}
         style={({ pressed }) => ({ opacity: pressed ? 0.85 : upsertProfile.isPending ? 0.7 : 1 })}
         className="mt-3 items-center rounded-[18px] bg-tint py-4">
-        <Text className="text-base font-black text-[#FFF8EC]">
+        <Text className="text-base font-black text-on-tint">
           {upsertProfile.isPending ? 'Guardando...' : submitLabel}
         </Text>
       </Pressable>
@@ -532,7 +532,7 @@ export function ProfileForm({
   );
 }
 
-function AvailabilityGrid({
+export function AvailabilityGrid({
   onChange,
   value = [],
 }: {
@@ -573,7 +573,7 @@ function AvailabilityGrid({
   );
 }
 
-function OptionChips({
+export function OptionChips({
   multiselect = false,
   onChange,
   options,

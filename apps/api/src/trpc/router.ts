@@ -251,6 +251,44 @@ function canManageAccessLinks(actorRole: CommunityRoleName | null) {
   return actorRole === 'owner' || actorRole === 'admin'
 }
 
+function accessLinkPresetForCommunity(
+  kind: z.infer<typeof communityKindSchema>,
+  visibility: z.infer<typeof communityVisibilitySchema>,
+) {
+  if (kind === 'club' && visibility === 'private') {
+    return {
+      defaultRequiresApproval: true,
+      forceRequiresApproval: true,
+      riskLabel: 'Club privado: approval obligatorio para no abrir el acceso.',
+    }
+  }
+
+  if (kind === 'creator_community') {
+    return {
+      defaultRequiresApproval: true,
+      forceRequiresApproval: false,
+      riskLabel: 'Creator community: approval recomendado para controlar la entrada.',
+    }
+  }
+
+  if (kind === 'crew_local' && visibility === 'public') {
+    return {
+      defaultRequiresApproval: false,
+      forceRequiresApproval: false,
+      riskLabel: 'Crew local pública: auto-join encaja bien si quieres crecer rápido.',
+    }
+  }
+
+  return {
+    defaultRequiresApproval: visibility === 'private',
+    forceRequiresApproval: false,
+    riskLabel:
+      visibility === 'private'
+        ? 'Comunidad privada: approval recomendado para revisar quién entra.'
+        : 'Link abierto: compártelo solo si quieres acceso directo y reutilizable.',
+  }
+}
+
 function normalizeAccessLinkCode(value: string) {
   return value
     .trim()
@@ -879,6 +917,10 @@ export const appRouter = createTRPCRouter({
           ? await getMembershipForUser(ctx, input.id, ctx.user.id)
           : null
         const viewerPrimaryRole = getPrimaryRole(viewerMembership?.role)
+        const viewerCanCreateRuns = canOrganizeCommunityMeetup(
+          community.mode,
+          viewerMembership?.role ?? null,
+        )
         const viewerCanInviteMembers = canInviteMembers(viewerPrimaryRole)
         const viewerCanManageRoles = canManageRole(viewerPrimaryRole)
         const viewerCanBlockUsers = canBlockUsers(viewerPrimaryRole)
@@ -1036,6 +1078,30 @@ export const appRouter = createTRPCRouter({
               )
               .orderBy(desc(communityAccessLinkClaims.requestedAt))
           : []
+        const recentAccessClaims = viewerCanInviteMembers
+          ? await ctx.db
+              .select({
+                accessLinkCode: communityAccessLinks.code,
+                id: communityAccessLinkClaims.id,
+                requestedAt: communityAccessLinkClaims.requestedAt,
+                reviewedAt: communityAccessLinkClaims.reviewedAt,
+                sourceLabel: communityAccessLinks.sourceLabel,
+                status: communityAccessLinkClaims.status,
+                userId: communityAccessLinkClaims.userId,
+                username: profiles.username,
+                userName: user.name,
+              })
+              .from(communityAccessLinkClaims)
+              .innerJoin(
+                communityAccessLinks,
+                eq(communityAccessLinkClaims.accessLinkId, communityAccessLinks.id),
+              )
+              .innerJoin(user, eq(communityAccessLinkClaims.userId, user.id))
+              .innerJoin(profiles, eq(communityAccessLinkClaims.userId, profiles.userId))
+              .where(eq(communityAccessLinkClaims.communityId, input.id))
+              .orderBy(desc(communityAccessLinkClaims.requestedAt))
+              .limit(20)
+          : []
 
         const blockedUsers = viewerCanBlockUsers
           ? await ctx.db
@@ -1059,6 +1125,7 @@ export const appRouter = createTRPCRouter({
           community: {
             ...community,
             viewerCanBlockUsers,
+            viewerCanCreateRuns,
             viewerCanInviteMembers,
             viewerCanManageRoles,
             viewerMembershipRole: viewerMembership?.role ?? null,
@@ -1147,6 +1214,7 @@ export const appRouter = createTRPCRouter({
             ...claim,
             canReview: viewerCanInviteMembers,
           })),
+          recentAccessClaims,
           upcomingMeetups: visibleMeetups.map((meetup) => {
             const meetupRsvpRows = rsvpRows.filter((rsvp) => rsvp.meetupId === meetup.id)
 
@@ -1408,6 +1476,29 @@ export const appRouter = createTRPCRouter({
 
       return rows.filter((invite) => invite.expiresAt > now)
     }),
+    myAccessLinkClaims: protectedProcedure.query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          accessLinkCode: communityAccessLinks.code,
+          communityId: communities.organizationId,
+          communityKind: communities.kind,
+          communityName: communities.name,
+          id: communityAccessLinkClaims.id,
+          requestedAt: communityAccessLinkClaims.requestedAt,
+          reviewedAt: communityAccessLinkClaims.reviewedAt,
+          sourceLabel: communityAccessLinks.sourceLabel,
+          status: communityAccessLinkClaims.status,
+        })
+        .from(communityAccessLinkClaims)
+        .innerJoin(
+          communityAccessLinks,
+          eq(communityAccessLinkClaims.accessLinkId, communityAccessLinks.id),
+        )
+        .innerJoin(communities, eq(communityAccessLinkClaims.communityId, communities.organizationId))
+        .where(eq(communityAccessLinkClaims.userId, ctx.user.id))
+        .orderBy(desc(communityAccessLinkClaims.requestedAt))
+        .limit(20)
+    }),
     createAccessLink: protectedProcedure
       .input(
         z.object({
@@ -1439,7 +1530,9 @@ export const appRouter = createTRPCRouter({
 
         const [community] = await ctx.db
           .select({
+            kind: communities.kind,
             name: communities.name,
+            visibility: communities.visibility,
           })
           .from(communities)
           .where(eq(communities.organizationId, input.communityId))
@@ -1448,6 +1541,8 @@ export const appRouter = createTRPCRouter({
         if (!community) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
         }
+
+        const accessLinkPreset = accessLinkPresetForCommunity(community.kind, community.visibility)
 
         let code = generateAccessLinkCode(community.name)
 
@@ -1476,7 +1571,7 @@ export const appRouter = createTRPCRouter({
             id: randomUUID(),
             isActive: true,
             maxUses: input.maxUses ?? null,
-            requiresApproval: input.requiresApproval,
+            requiresApproval: accessLinkPreset.forceRequiresApproval ? true : input.requiresApproval,
             sourceLabel: input.sourceLabel?.trim() || null,
             updatedAt: new Date(),
             usesCount: 0,

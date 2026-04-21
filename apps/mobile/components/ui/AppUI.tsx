@@ -46,6 +46,11 @@ type ChipProps = {
   tone?: 'default' | 'warm' | 'cool' | 'neutral';
 };
 
+type EmptyStateProps = {
+  body: string;
+  title: string;
+};
+
 type AppButtonProps = Omit<PressableProps, 'style'> & {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -112,9 +117,18 @@ export function SectionHeader({ loading, right, title }: SectionHeaderProps) {
   const { colors } = useAppTheme();
 
   return (
-    <View className="mt-1 flex-row items-center justify-between">
-      <Text className="text-[25px] font-black leading-8 text-text">{title}</Text>
+    <View className="mt-3 flex-row items-center justify-between">
+      <Text className="text-[22px] font-black leading-7 text-text">{title}</Text>
       {loading ? <ActivityIndicator color={colors.tint} /> : right}
+    </View>
+  );
+}
+
+export function EmptyState({ body, title }: EmptyStateProps) {
+  return (
+    <View className="rounded-card px-5 py-4">
+      <Text className="text-[17px] font-bold leading-6 text-muted-text">{title}</Text>
+      <Text className="mt-1 text-[14px] leading-[21px] text-muted-text/70">{body}</Text>
     </View>
   );
 }
@@ -127,7 +141,7 @@ export function Chip({ children, onPress, selected = false, tone = 'default' }: 
     warm: 'bg-badge-warm',
   }[tone];
   const chipClassName = `rounded-full px-3.5 py-[9px] ${selected ? 'bg-tint' : toneClassName}`;
-  const textClassName = `text-xs font-black uppercase ${selected ? 'text-[#FFF8EC]' : 'text-text'}`;
+  const textClassName = `text-xs font-black uppercase ${selected ? 'text-on-tint' : 'text-text'}`;
 
   if (onPress) {
     return (
@@ -149,8 +163,8 @@ export function Chip({ children, onPress, selected = false, tone = 'default' }: 
 
 export function AppButton({ children, disabled, style, tone = 'primary', ...props }: AppButtonProps) {
   const isPrimary = tone === 'primary';
-  const backgroundClassName = tone === 'danger' ? 'bg-chip' : isPrimary ? 'bg-tint' : 'bg-chip';
-  const textClassName = tone === 'danger' ? 'text-danger' : isPrimary ? 'text-[#FFF8EC]' : 'text-text';
+  const backgroundClassName = tone === 'danger' ? 'bg-danger-surface' : isPrimary ? 'bg-tint' : 'bg-chip';
+  const textClassName = tone === 'danger' ? 'text-danger' : isPrimary ? 'text-on-tint' : 'text-text';
 
   return (
     <Pressable
@@ -158,7 +172,7 @@ export function AppButton({ children, disabled, style, tone = 'primary', ...prop
       className={`items-center rounded-[18px] px-4 py-[15px] ${backgroundClassName}`}
       style={({ pressed }) => [
         style,
-        { opacity: pressed && !disabled ? 0.8 : disabled ? 0.7 : 1 },
+        { opacity: pressed && !disabled ? 0.8 : disabled ? 0.5 : 1 },
       ]}
       {...props}>
       <Text className={`text-[15px] font-black ${textClassName}`}>{children}</Text>

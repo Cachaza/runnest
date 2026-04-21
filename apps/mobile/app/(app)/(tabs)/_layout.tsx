@@ -60,7 +60,7 @@ export default function TabLayout() {
                           opacity: pressed ? 0.8 : 1,
                         },
                       ]}>
-                      <Text style={styles.newMeetupText}>+ Quedada</Text>
+                      <Text style={[styles.newMeetupText, { color: colors.onTint }]}>+ Quedada</Text>
                     </View>
                   )}
                 </Pressable>
@@ -103,7 +103,7 @@ export default function TabLayout() {
                           opacity: pressed ? 0.8 : 1,
                         },
                       ]}>
-                      <Text style={styles.newMeetupText}>+ Comunidad</Text>
+                      <Text style={[styles.newMeetupText, { color: colors.onTint }]}>+ Comunidad</Text>
                     </View>
                   )}
                 </Pressable>

@@ -3,9 +3,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { usePullToRefresh } from '@/components/usePullToRefresh';
-import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
-import { labelForCommunityKind } from '@/lib/community-labels';
+import { labelForCommunityKind, labelForMode, labelForVisibility } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 function formatMeetupLabel(startsAt: string | Date) {
@@ -27,11 +27,29 @@ function formatViewerDistance(distanceKm: number | null | undefined) {
   return `~${Math.round(distanceKm)} km de ti`;
 }
 
+function accessClaimStatusLabel(status: 'pending' | 'approved' | 'rejected' | 'cancelled') {
+  switch (status) {
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'pending':
+    default:
+      return 'Pending';
+  }
+}
+
 export default function CommunitiesScreen() {
   const { colors, isDark } = useAppTheme();
   const utils = trpc.useUtils();
   const { data: session } = authClient.useSession();
   const communitiesQuery = trpc.communities.listPublic.useQuery();
+  const myAccessLinkClaimsQuery = trpc.communities.myAccessLinkClaims.useQuery(undefined, {
+    enabled: !!session,
+    retry: false,
+  });
   const myInvitesQuery = trpc.communities.myInvites.useQuery(undefined, {
     enabled: !!session,
     retry: false,
@@ -95,6 +113,7 @@ export default function CommunitiesScreen() {
       meetupsQuery.refetch(),
       ...(session
         ? [
+            myAccessLinkClaimsQuery.refetch(),
             myInvitesQuery.refetch(),
             myMembershipsQuery.refetch(),
             recommendedQuery.refetch(),
@@ -138,7 +157,7 @@ export default function CommunitiesScreen() {
             <Pressable
               style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
               className="self-start rounded-2xl bg-hero-accent px-4 py-3.5">
-              <Text className="text-[15px] font-black text-[#1A1410]">Crear comunidad</Text>
+              <Text className="text-[15px] font-black text-on-accent">Crear comunidad</Text>
             </Pressable>
           </Link>
         </View>
@@ -149,12 +168,10 @@ export default function CommunitiesScreen() {
           <SectionHeader loading={myInvitesQuery.isPending} title="Invitaciones para ti" />
 
           {!myInvitesQuery.isPending && (myInvitesQuery.data?.length ?? 0) === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Sin invitaciones pendientes.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Cuando alguien te invite a una comunidad privada o managed, aparecerá aquí.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Sin invitaciones pendientes."
+              body="Cuando alguien te invite a una comunidad privada o managed, aparecerá aquí."
+            />
           ) : null}
 
           {myInvitesQuery.data?.map((invite) => (
@@ -177,7 +194,7 @@ export default function CommunitiesScreen() {
                   onPress={() => handleInviteAction(invite.id, 'accept')}
                   style={({ pressed }) => ({ opacity: pressed ? 0.75 : isMutatingInvite ? 0.7 : 1 })}
                   className="flex-1 items-center rounded-[18px] bg-tint py-[15px]">
-                  <Text className="text-[15px] font-black text-[#FFF8EC]">Aceptar</Text>
+                  <Text className="text-[15px] font-black text-on-tint">Aceptar</Text>
                 </Pressable>
                 <Pressable
                   disabled={isMutatingInvite}
@@ -187,6 +204,50 @@ export default function CommunitiesScreen() {
                   <Text className="text-[15px] font-black text-text">Rechazar</Text>
                 </Pressable>
               </View>
+            </AppCard>
+          ))}
+
+          <SectionHeader loading={myAccessLinkClaimsQuery.isPending} title="Accesos por código" />
+
+          {!myAccessLinkClaimsQuery.isPending && (myAccessLinkClaimsQuery.data?.length ?? 0) === 0 ? (
+            <EmptyState
+              title="Sin actividad por códigos todavía."
+              body="Cuando entres a una comunidad con un access link, aquí verás el estado de tu acceso."
+            />
+          ) : null}
+
+          {myAccessLinkClaimsQuery.data?.map((claim) => (
+            <AppCard key={claim.id}>
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-[22px] font-black text-text">{claim.communityName}</Text>
+                  <Text className="mt-[3px] text-sm font-bold text-muted-text">
+                    {labelForCommunityKind(claim.communityKind)} · {claim.sourceLabel || claim.accessLinkCode}
+                  </Text>
+                </View>
+                <Chip tone={claim.status === 'approved' ? 'warm' : claim.status === 'pending' ? 'cool' : 'neutral'}>
+                  {accessClaimStatusLabel(claim.status)}
+                </Chip>
+              </View>
+              <Text className="text-[15px] leading-[23px] text-muted-text">
+                Solicitado el{' '}
+                {new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(claim.requestedAt))}
+                {claim.reviewedAt
+                  ? ` · revisado el ${new Intl.DateTimeFormat('es-ES', {
+                      day: '2-digit',
+                      month: 'short',
+                    }).format(new Date(claim.reviewedAt))}`
+                  : ''}
+              </Text>
+              {claim.status === 'approved' ? (
+                <Link href={`/crew/${claim.communityId}` as any} asChild>
+                  <Pressable
+                    style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+                    className="mt-3 self-start rounded-[18px] bg-chip px-4 py-3">
+                    <Text className="text-sm font-black text-text">Abrir comunidad</Text>
+                  </Pressable>
+                </Link>
+              ) : null}
             </AppCard>
           ))}
 
@@ -203,12 +264,10 @@ export default function CommunitiesScreen() {
           />
 
           {!myMembershipsQuery.isPending && (myMembershipsQuery.data?.length ?? 0) === 0 ? (
-            <AppCard>
-              <Text className="text-[22px] font-black text-text">Aún no perteneces a ninguna comunidad.</Text>
-              <Text className="text-[15px] leading-[23px] text-muted-text">
-                Únete a una pública desde discovery o crea la tuya para empezar a publicar runs.
-              </Text>
-            </AppCard>
+            <EmptyState
+              title="Aún no perteneces a ninguna comunidad."
+              body="Únete a una pública desde discovery o crea la tuya para empezar a publicar runs."
+            />
           ) : null}
 
           {myMembershipsQuery.data?.map((community) => (
@@ -226,9 +285,9 @@ export default function CommunitiesScreen() {
                   </View>
                   <Text className="text-[15px] leading-[23px] text-muted-text">{community.description}</Text>
                   <View className="mt-0.5 flex-row flex-wrap gap-2.5">
-                    <Chip tone="cool">{community.mode === 'collaborative' ? 'Collaborative' : 'Managed'}</Chip>
-                    <Chip tone="neutral">{community.visibility === 'public' ? 'Public' : 'Private'}</Chip>
-                    {community.canCreateRuns ? <Chip tone="warm">Can host</Chip> : null}
+                    <Chip tone="cool">{labelForMode(community.mode)}</Chip>
+                    <Chip tone="neutral">{labelForVisibility(community.visibility)}</Chip>
+                    {community.canCreateRuns ? <Chip tone="warm">Puede organizar</Chip> : null}
                   </View>
                 </AppCard>
               </Pressable>
@@ -250,12 +309,10 @@ export default function CommunitiesScreen() {
       ) : null}
 
       {!isLoadingCommunities && communities.length === 0 ? (
-        <AppCard>
-          <Text className="text-[22px] font-black text-text">Aún no hay comunidades activas.</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            Cuando se creen comunidades aparecerán aquí con su ciudad, ritmo y vibe.
-          </Text>
-        </AppCard>
+        <EmptyState
+          title="Aún no hay comunidades activas."
+          body="Cuando se creen comunidades aparecerán aquí con su ciudad, ritmo y vibe."
+        />
       ) : null}
 
       {communities.map((community) => {
@@ -281,8 +338,8 @@ export default function CommunitiesScreen() {
                 <View className="mt-0.5 flex-row flex-wrap gap-2.5">
                   {community.pace ? <Chip tone="cool">{community.pace}</Chip> : null}
                   {community.vibe ? <Chip tone="neutral">{community.vibe}</Chip> : null}
-                  <Chip tone="warm">{community.mode === 'collaborative' ? 'Collaborative' : 'Managed'}</Chip>
-                  <Chip tone="neutral">{community.visibility === 'public' ? 'Public' : 'Private'}</Chip>
+                  <Chip tone="warm">{labelForMode(community.mode)}</Chip>
+                  <Chip tone="neutral">{labelForVisibility(community.visibility)}</Chip>
                 </View>
                 <Text className="text-sm font-black text-tint">Ver detalle</Text>
               </AppCard>
@@ -327,12 +384,10 @@ export default function CommunitiesScreen() {
       ) : null}
 
       {!meetupsQuery.isPending && !meetupsQuery.error && meetupsQuery.data?.length === 0 ? (
-        <AppCard>
-          <Text className="text-[22px] font-black text-text">Sin quedadas publicadas.</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            Crea una desde Hoy o desde tus espacios para empezar a mover a la comunidad.
-          </Text>
-        </AppCard>
+        <EmptyState
+          title="Sin quedadas publicadas."
+          body="Crea una desde Hoy o desde tus espacios para empezar a mover a la comunidad."
+        />
       ) : null}
 
       {meetupsQuery.data?.map((meetup) => {
