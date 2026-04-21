@@ -72,8 +72,28 @@ export default function TabLayout() {
       <Tabs.Screen
         name="communities"
         options={{
-          title: 'Crews',
+          title: 'Comunidades',
           tabBarIcon: ({ color }) => <FontAwesome6 name="users-line" size={20} color={color} />,
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <Link href="/community-new" asChild>
+                <Pressable>
+                  {({ pressed }) => (
+                    <View
+                      style={[
+                        styles.newMeetupButton,
+                        {
+                          backgroundColor: colors.tint,
+                          opacity: pressed ? 0.8 : 1,
+                        },
+                      ]}>
+                      <Text style={styles.newMeetupText}>+ Comunidad</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </Link>
+            </View>
+          ),
         }}
       />
       <Tabs.Screen

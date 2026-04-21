@@ -25,6 +25,10 @@ export default function AppLayout() {
         options={{ presentation: 'modal', title: 'Crear quedada' }}
       />
       <Stack.Screen
+        name="community-new"
+        options={{ presentation: 'modal', title: 'Crear comunidad' }}
+      />
+      <Stack.Screen
         name="settings"
         options={{ presentation: 'modal', title: 'Ajustes' }}
       />

@@ -14,3 +14,4 @@
   - authenticated users with profile go to `(app)`
 - Do not reintroduce auth forms inside tab screens or other authenticated routes.
 - When changing navigation, keep modal/detail routes inside `(app)/_layout.tsx` and keep tabs inside `(app)/(tabs)/_layout.tsx`.
+- For the current org-backed community model, product rules, and UX direction, use `docs/community-vision.md` as the canonical reference.

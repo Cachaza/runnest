@@ -7,6 +7,7 @@ export async function createTRPCContext(headers: Headers) {
 
   return {
     db,
+    headers,
     user: session?.user ?? null,
     session: session?.session ?? null,
   }

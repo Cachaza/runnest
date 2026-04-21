@@ -1,7 +1,9 @@
 import { Link, useLocalSearchParams } from 'expo-router';
 import { Alert, Pressable, Text, View } from 'react-native';
 
-import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { usePullToRefresh } from '@/components/usePullToRefresh';
+import { AppButton, AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
+import { labelForCommunityKind, lowerLabelForCommunityKind } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 function formatMeetupLabel(startsAt: string | Date) {
@@ -18,22 +20,22 @@ function formatMeetupLabel(startsAt: string | Date) {
 export default function CrewDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const crewId = rawId ? Number(rawId) : null;
+  const communityId = rawId ?? null;
   const utils = trpc.useUtils();
-  const crewQuery = trpc.crews.byId.useQuery(
-    { id: crewId ?? 0 },
+  const communityQuery = trpc.communities.byId.useQuery(
+    { id: communityId ?? '' },
     {
-      enabled: Boolean(crewId),
+      enabled: Boolean(communityId),
       retry: false,
     },
   );
   const rsvpMutation = trpc.meetups.rsvp.useMutation({
     onSuccess: async () => {
-      if (crewId) {
-        await utils.crews.byId.invalidate({ id: crewId });
+      if (communityId) {
+        await utils.communities.byId.invalidate({ id: communityId });
       }
 
-      await utils.meetups.upcoming.invalidate();
+      await utils.meetups.upcomingPublic.invalidate();
     },
     onError: (error) => {
       Alert.alert('No se pudo actualizar RSVP', error.message);
@@ -41,18 +43,60 @@ export default function CrewDetailScreen() {
   });
   const unrsvpMutation = trpc.meetups.unrsvp.useMutation({
     onSuccess: async () => {
-      if (crewId) {
-        await utils.crews.byId.invalidate({ id: crewId });
+      if (communityId) {
+        await utils.communities.byId.invalidate({ id: communityId });
       }
 
-      await utils.meetups.upcoming.invalidate();
+      await utils.meetups.upcomingPublic.invalidate();
     },
     onError: (error) => {
       Alert.alert('No se pudo actualizar RSVP', error.message);
     },
   });
-  const crew = crewQuery.data?.crew;
+  const joinMutation = trpc.communities.joinPublic.useMutation({
+    onSuccess: async () => {
+      if (!communityId) {
+        return;
+      }
+
+      await Promise.all([
+        utils.communities.byId.invalidate({ id: communityId }),
+        utils.communities.myMemberships.invalidate(),
+        utils.communities.hostable.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      Alert.alert('No se pudo unir', error.message);
+    },
+  });
+  const leaveMutation = trpc.communities.leave.useMutation({
+    onSuccess: async () => {
+      if (!communityId) {
+        return;
+      }
+
+      await Promise.all([
+        utils.communities.byId.invalidate({ id: communityId }),
+        utils.communities.myMemberships.invalidate(),
+        utils.communities.hostable.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      Alert.alert('No se pudo salir', error.message);
+    },
+  });
+  const community = communityQuery.data?.community;
+  const entityLabel = labelForCommunityKind(community?.kind);
+  const entityLabelLower = lowerLabelForCommunityKind(community?.kind);
   const isMutatingRsvp = rsvpMutation.isPending || unrsvpMutation.isPending;
+  const isMutatingMembership = joinMutation.isPending || leaveMutation.isPending;
+  const { onRefresh, refreshing } = usePullToRefresh(async () => {
+    if (!communityId) {
+      return;
+    }
+
+    await communityQuery.refetch();
+  });
 
   async function handleMeetupAction(meetupId: number, viewerIsGoing: boolean) {
     if (viewerIsGoing) {
@@ -63,43 +107,81 @@ export default function CrewDetailScreen() {
     await rsvpMutation.mutateAsync({ meetupId });
   }
 
-  if (crewQuery.error) {
+  async function handleMembershipAction() {
+    if (!community || !communityId) {
+      return;
+    }
+
+    if (community.viewerMembershipRole) {
+      await leaveMutation.mutateAsync({ communityId });
+      return;
+    }
+
+    await joinMutation.mutateAsync({ communityId });
+  }
+
+  if (communityQuery.error) {
     return (
-      <ScreenScroll>
+      <ScreenScroll onRefresh={communityId ? onRefresh : undefined} refreshing={refreshing}>
         <AppCard>
-          <Text className="text-[25px] font-black text-text">Crew no disponible</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">{crewQuery.error.message}</Text>
+          <Text className="text-[25px] font-black text-text">Comunidad no disponible</Text>
+          <Text className="text-[15px] leading-[23px] text-muted-text">{communityQuery.error.message}</Text>
         </AppCard>
       </ScreenScroll>
     );
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={communityId ? onRefresh : undefined} refreshing={refreshing}>
       <HeroPanel
-        body={crew?.description ?? 'Cargando detalle de la crew...'}
-        kicker={crew?.city ?? 'Crew'}
-        title={crew?.name ?? 'Cargando...'}>
-        {crew ? (
-          <View className="mt-5 flex-row flex-wrap gap-2.5">
-            <Chip tone="cool">{crew.pace}</Chip>
-            <Chip tone="neutral">{crew.vibe}</Chip>
+        body={community?.description ?? 'Cargando detalle de la comunidad...'}
+        kicker={community ? `${entityLabel} · ${community.city}` : 'Community'}
+        title={community?.name ?? 'Cargando...'}>
+        {community ? (
+          <View className="mt-5 gap-3">
+            <View className="flex-row flex-wrap gap-2.5">
+              {community.pace ? <Chip tone="cool">{community.pace}</Chip> : null}
+              {community.vibe ? <Chip tone="neutral">{community.vibe}</Chip> : null}
+              <Chip tone="warm">{community.mode === 'collaborative' ? 'Collaborative' : 'Managed'}</Chip>
+              <Chip tone="neutral">{community.visibility === 'public' ? 'Public' : 'Private'}</Chip>
+              {community.viewerMembershipRole ? <Chip tone="warm">{community.viewerMembershipRole}</Chip> : null}
+            </View>
+
+            {community.visibility === 'public' ? (
+              <AppButton
+                disabled={isMutatingMembership || community.viewerMembershipRole === 'owner'}
+                onPress={handleMembershipAction}>
+                {community.viewerMembershipRole
+                  ? isMutatingMembership
+                    ? 'Saliendo...'
+                    : community.viewerMembershipRole === 'owner'
+                      ? 'Owner'
+                      : 'Salir de la comunidad'
+                  : isMutatingMembership
+                    ? 'Uniéndote...'
+                    : 'Unirme a esta comunidad'}
+              </AppButton>
+            ) : !community.viewerMembershipRole ? (
+              <Text className="text-sm font-bold leading-5 text-hero-text-muted">
+                Esta comunidad es privada y entra por invitación.
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </HeroPanel>
 
-      <SectionHeader loading={crewQuery.isPending} title="Próximas quedadas" />
+      <SectionHeader loading={communityQuery.isPending} title="Próximas quedadas" />
 
-      {!crewQuery.isPending && crewQuery.data?.upcomingMeetups.length === 0 ? (
+      {!communityQuery.isPending && communityQuery.data?.upcomingMeetups.length === 0 ? (
         <AppCard>
           <Text className="text-[22px] font-black text-text">Sin quedadas futuras.</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">
-            Cuando esta crew publique una salida o preparación de carrera, aparecerá aquí.
+            Cuando esta {entityLabelLower} publique una salida o preparación de carrera, aparecerá aquí.
           </Text>
         </AppCard>
       ) : null}
 
-      {crewQuery.data?.upcomingMeetups.map((meetup) => (
+      {communityQuery.data?.upcomingMeetups.map((meetup) => (
         <AppCard key={meetup.id}>
           <Text className="text-xs font-black uppercase tracking-[1px] text-tint">
             {formatMeetupLabel(meetup.startsAt)}
@@ -123,18 +205,18 @@ export default function CrewDetailScreen() {
         </AppCard>
       ))}
 
-      <SectionHeader loading={crewQuery.isPending} title="Runners en esta crew" />
+      <SectionHeader loading={communityQuery.isPending} title={`Runners en esta ${entityLabelLower}`} />
 
-      {!crewQuery.isPending && crewQuery.data?.activeRunners.length === 0 ? (
+      {!communityQuery.isPending && communityQuery.data?.activeRunners.length === 0 ? (
         <AppCard>
           <Text className="text-[22px] font-black text-text">Aún sin runners públicos.</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">
-            Los runners aparecerán cuando creen o confirmen quedadas de esta crew.
+            Los runners aparecerán cuando creen o confirmen quedadas de esta comunidad.
           </Text>
         </AppCard>
       ) : null}
 
-      {crewQuery.data?.activeRunners.map((runner) => (
+      {communityQuery.data?.activeRunners.map((runner) => (
         <Link key={runner.id} href={`/runner/${runner.username}` as any} asChild>
           <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
             <AppCard>

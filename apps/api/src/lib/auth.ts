@@ -1,9 +1,11 @@
 import { expo } from '@better-auth/expo'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
+import { organization } from 'better-auth/plugins'
 
 import { db, schema } from '@apprunners/db'
 
+import { communityAc, communityRoles } from './community-auth.js'
 import { env } from './env.js'
 
 export const auth = betterAuth({
@@ -17,7 +19,14 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  plugins: [expo()],
+  plugins: [
+    organization({
+      ac: communityAc,
+      allowUserToCreateOrganization: true,
+      roles: communityRoles,
+    }),
+    expo(),
+  ],
   secret: env.betterAuthSecret,
   trustedOrigins: [`${env.mobileScheme}://`, env.corsOrigin],
 })

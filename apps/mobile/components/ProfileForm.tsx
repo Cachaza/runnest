@@ -219,7 +219,7 @@ export function ProfileForm({
   const upsertProfile = trpc.profile.upsert.useMutation({
     onSuccess: async () => {
       await utils.profile.me.invalidate();
-      await utils.crews.recommended.invalidate();
+      await utils.communities.recommended.invalidate();
       setLocalSavedMessage(savedMessage);
       onSaved?.();
     },

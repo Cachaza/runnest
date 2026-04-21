@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
+import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { ProfileForm } from '@/components/ProfileForm';
 import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
@@ -84,9 +85,18 @@ export default function ProfileScreen() {
       retry: false,
     },
   );
+  const { onRefresh, refreshing } = usePullToRefresh(async () => {
+    const refreshedProfile = await profileQuery.refetch();
+    const refreshedUsername = refreshedProfile.data?.profile?.username;
+
+    if (refreshedUsername && !isEditing) {
+      await publicProfileQuery.refetch();
+    }
+  });
+  const canRefresh = !isEditing && Boolean(profile);
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={canRefresh ? onRefresh : undefined} refreshing={refreshing}>
       <HeroPanel kicker="Tu cuenta" title={profile?.username ? `@${profile.username}` : session?.user.name ?? 'Runner'} body={session?.user.email}>
         <View style={[styles.statusPill, { backgroundColor: colors.heroAccent }]}>
           <Text style={styles.statusPillText}>
@@ -179,7 +189,7 @@ function PublicProfilePreview({
     username: string | null;
   };
   upcomingMeetups: {
-    crewName: string;
+    communityName: string;
     distanceKm: number;
     id: number;
     location: string;
@@ -232,7 +242,7 @@ function PublicProfilePreview({
           </Text>
           <Text className="text-[22px] font-black text-text">{meetup.title}</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">
-            {meetup.crewName} · {meetup.distanceKm} km · {meetup.location}
+            {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
           </Text>
         </AppCard>
       ))}

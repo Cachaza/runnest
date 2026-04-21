@@ -7,10 +7,11 @@ import { z } from 'zod';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { Chip } from '@/components/ui/AppUI';
+import { labelForCommunityKind } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 const meetupSchema = z.object({
-  crewId: z.number().int().positive(),
+  communityId: z.string().min(1),
   distanceKm: z.number().int().positive(),
   location: z.string().min(2),
   startsAt: z.string().datetime(),
@@ -18,7 +19,7 @@ const meetupSchema = z.object({
 });
 
 type MeetupFormValues = {
-  crewId: number;
+  communityId: string;
   distanceKm: string;
   location: string;
   startsAt: string;
@@ -29,10 +30,10 @@ export default function ModalScreen() {
   const { colors } = useAppTheme();
   const utils = trpc.useUtils();
   const [formError, setFormError] = useState<string | null>(null);
-  const crewsQuery = trpc.crews.list.useQuery();
+  const communitiesQuery = trpc.communities.hostable.useQuery();
   const createMeetup = trpc.meetups.create.useMutation({
     onSuccess: async () => {
-      await utils.meetups.upcoming.invalidate();
+      await utils.meetups.upcomingPublic.invalidate();
       router.back();
     },
     onError: (error) => {
@@ -41,28 +42,29 @@ export default function ModalScreen() {
   });
   const { control, handleSubmit, setValue, watch } = useForm<MeetupFormValues>({
     defaultValues: {
-      crewId: 0,
+      communityId: '',
       distanceKm: '6',
       location: '',
       startsAt: '',
       title: '',
     },
   });
-  const selectedCrewId = watch('crewId');
-  const selectedCrew = useMemo(
-    () => crewsQuery.data?.find((crew) => crew.id === selectedCrewId) ?? null,
-    [crewsQuery.data, selectedCrewId],
+  const selectedCommunityId = watch('communityId');
+  const selectedCommunity = useMemo(
+    () => communitiesQuery.data?.find((community) => community.id === selectedCommunityId) ?? null,
+    [communitiesQuery.data, selectedCommunityId],
   );
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
 
-    if (!values.crewId) {
-      setFormError('Elige una crew antes de publicar la quedada.');
+    if (!values.communityId) {
+      setFormError('Elige una comunidad antes de publicar la quedada.');
       return;
     }
 
     const parsedDate = new Date(values.startsAt.replace(' ', 'T'));
+    const parsedDistance = Number.parseInt(values.distanceKm, 10);
 
     if (Number.isNaN(parsedDate.getTime())) {
       setFormError('Usa una fecha válida con formato YYYY-MM-DD HH:MM.');
@@ -70,8 +72,8 @@ export default function ModalScreen() {
     }
 
     const parsed = meetupSchema.safeParse({
-      crewId: values.crewId,
-      distanceKm: values.distanceKm,
+      communityId: values.communityId,
+      distanceKm: parsedDistance,
       location: values.location.trim(),
       startsAt: parsedDate.toISOString(),
       title: values.title.trim(),
@@ -92,33 +94,41 @@ export default function ModalScreen() {
       contentContainerClassName="justify-center p-[18px]">
       <View className="rounded-[32px] border border-border bg-surface p-[22px]">
         <Text className="text-xs font-black uppercase tracking-[1.1px] text-tint">Host a run</Text>
-        <Text className="mt-2.5 text-[32px] font-black leading-9 text-text">Monta la próxima quedada de tu crew.</Text>
+        <Text className="mt-2.5 text-[32px] font-black leading-9 text-text">Monta la próxima quedada de tu comunidad.</Text>
         <Text className="mt-3 text-[15px] leading-[23px] text-muted-text">
-          Elige comunidad, define la ruta base y publica un plan fácil de entender.
+          Elige una comunidad donde puedas organizar, define la ruta base y publica un plan fácil de entender.
         </Text>
 
-        <Text className="mt-[18px] text-[13px] font-black uppercase tracking-[0.8px] text-muted-text">Crew</Text>
+        <Text className="mt-[18px] text-[13px] font-black uppercase tracking-[0.8px] text-muted-text">Comunidad</Text>
         <View className="mt-3 flex-row flex-wrap gap-2.5">
-          {crewsQuery.data?.map((crew) => (
+          {communitiesQuery.data?.map((community) => (
             <Chip
-              key={crew.id}
-              selected={selectedCrewId === crew.id}
+              key={community.id}
+              selected={selectedCommunityId === community.id}
               onPress={() => {
-                setValue('crewId', crew.id);
+                setValue('communityId', community.id);
                 setFormError(null);
               }}>
-              {crew.name}
+              {community.name}
             </Chip>
           ))}
         </View>
 
-        {crewsQuery.error ? (
-          <Text style={[styles.errorText, { color: colors.danger }]}>{crewsQuery.error.message}</Text>
+        {communitiesQuery.error ? (
+          <Text style={[styles.errorText, { color: colors.danger }]}>{communitiesQuery.error.message}</Text>
         ) : null}
 
-        {selectedCrew ? (
+        {!communitiesQuery.isPending && !communitiesQuery.error && (communitiesQuery.data?.length ?? 0) === 0 ? (
           <Text className="mt-2.5 text-sm font-bold leading-5 text-muted-text">
-            {selectedCrew.city} · {selectedCrew.pace} · {selectedCrew.vibe}
+            Aún no perteneces a ninguna comunidad donde puedas organizar quedadas.
+          </Text>
+        ) : null}
+
+        {selectedCommunity ? (
+          <Text className="mt-2.5 text-sm font-bold leading-5 text-muted-text">
+            {labelForCommunityKind(selectedCommunity.kind)} · {selectedCommunity.city}
+            {selectedCommunity.pace ? ` · ${selectedCommunity.pace}` : ''}
+            {selectedCommunity.vibe ? ` · ${selectedCommunity.vibe}` : ''}
           </Text>
         ) : null}
 

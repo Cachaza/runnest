@@ -1,10 +1,21 @@
+import { randomUUID } from 'node:crypto'
+
 import { TRPCError } from '@trpc/server'
 import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { crews, meetups, meetupRsvps, profiles } from '@apprunners/db'
+import {
+  communities,
+  communityBlocks,
+  meetups,
+  meetupRsvps,
+  member,
+  organization,
+  profiles,
+} from '@apprunners/db'
 import { searchMunicipalities } from '@apprunners/geo'
 
+import { COMMUNITY_ROLE_ORDER, type CommunityRoleName } from '../lib/community-auth.js'
 import { geocodeWithCartociudad } from '../lib/geocoding/cartociudad.js'
 import { geocodeWithNominatim } from '../lib/geocoding/nominatim.js'
 import { createTRPCRouter, protectedProcedure, publicProcedure } from './init.js'
@@ -25,6 +36,11 @@ const availabilitySlotSchema = z.object({
 })
 
 type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>
+
+const communityKindSchema = z.enum(['crew_local', 'creator_community', 'club', 'training_group'])
+const communityModeSchema = z.enum(['collaborative', 'managed'])
+const communityVisibilitySchema = z.enum(['public', 'private'])
+const meetupVisibilitySchema = z.enum(['public', 'members'])
 
 function listFromCommaValue(value: string | null | undefined) {
   return value
@@ -112,28 +128,105 @@ function availabilitySlotsOverlap(profileSlots: AvailabilitySlot[], meetupDates:
   })
 }
 
-function scoreGoalMatch(goals: string | null | undefined, crewText: string) {
+function parseRoleList(role: string | null | undefined) {
+  return role
+    ? role
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : []
+}
+
+function getPrimaryRole(role: string | null | undefined) {
+  const roleSet = new Set(parseRoleList(role))
+
+  for (const currentRole of COMMUNITY_ROLE_ORDER) {
+    if (roleSet.has(currentRole)) {
+      return currentRole
+    }
+  }
+
+  return null
+}
+
+function hasAnyRole(
+  role: string | null | undefined,
+  allowedRoles: readonly CommunityRoleName[],
+) {
+  const roleSet = new Set(parseRoleList(role))
+
+  return allowedRoles.some((allowedRole) => roleSet.has(allowedRole))
+}
+
+function canOrganizeCommunityMeetup(
+  mode: z.infer<typeof communityModeSchema>,
+  role: string | null | undefined,
+) {
+  if (!role) {
+    return false
+  }
+
+  if (mode === 'collaborative') {
+    return parseRoleList(role).length > 0
+  }
+
+  return hasAnyRole(role, ['owner', 'admin', 'host'])
+}
+
+function canViewerSeeMeetup(
+  viewerIsMember: boolean,
+  communityVisibility: z.infer<typeof communityVisibilitySchema>,
+  meetupVisibility: z.infer<typeof meetupVisibilitySchema>,
+) {
+  if (viewerIsMember) {
+    return true
+  }
+
+  return communityVisibility === 'public' && meetupVisibility === 'public'
+}
+
+function scoreGoalMatch(goals: string | null | undefined, communityText: string) {
   const normalizedGoals = listFromCommaValue(goals).map(normalizeText)
   let score = 0
 
   for (const goal of normalizedGoals) {
     if (goal.includes('gente') || goal.includes('social')) {
-      score += crewText.includes('social') || crewText.includes('coffee') ? 2 : 0
+      score += communityText.includes('social') || communityText.includes('coffee') ? 2 : 0
     } else if (goal.includes('10k')) {
-      score += crewText.includes('10k') || crewText.includes('tempo') || crewText.includes('race') ? 2 : 0
+      score +=
+        communityText.includes('10k') ||
+        communityText.includes('tempo') ||
+        communityText.includes('race')
+          ? 2
+          : 0
     } else if (goal.includes('constante')) {
-      score += crewText.includes('steady') || crewText.includes('consistent') || crewText.includes('easy') ? 2 : 0
+      score +=
+        communityText.includes('steady') ||
+        communityText.includes('consistent') ||
+        communityText.includes('easy')
+          ? 2
+          : 0
     } else if (goal.includes('ritmo')) {
-      score += crewText.includes('tempo') || crewText.includes('pace') || crewText.includes('structured') ? 2 : 0
+      score +=
+        communityText.includes('tempo') ||
+        communityText.includes('pace') ||
+        communityText.includes('structured')
+          ? 2
+          : 0
     } else if (goal.includes('carrera')) {
-      score += crewText.includes('race') || crewText.includes('marathon') || crewText.includes('half') ? 2 : 0
+      score +=
+        communityText.includes('race') ||
+        communityText.includes('marathon') ||
+        communityText.includes('half')
+          ? 2
+          : 0
     }
   }
 
   return Math.min(score, 4)
 }
 
-function scoreLevelMatch(level: string | null | undefined, crewText: string) {
+function scoreLevelMatch(level: string | null | undefined, communityText: string) {
   const normalized = normalizeText(level)
 
   if (!normalized) {
@@ -141,19 +234,21 @@ function scoreLevelMatch(level: string | null | undefined, crewText: string) {
   }
 
   if (normalized.includes('principiante')) {
-    return crewText.includes('easy') || crewText.includes('low-pressure') ? 2 : 0
+    return communityText.includes('easy') || communityText.includes('low-pressure') ? 2 : 0
   }
 
   if (normalized.includes('intermedio')) {
-    return crewText.includes('steady') || crewText.includes('social') ? 1.5 : 0
+    return communityText.includes('steady') || communityText.includes('social') ? 1.5 : 0
   }
 
   if (normalized.includes('avanzado')) {
-    return crewText.includes('tempo') || crewText.includes('structured') ? 2 : 0
+    return communityText.includes('tempo') || communityText.includes('structured') ? 2 : 0
   }
 
   if (normalized.includes('competitivo')) {
-    return crewText.includes('race') || crewText.includes('pace') || crewText.includes('marathon') ? 2 : 0
+    return communityText.includes('race') || communityText.includes('pace') || communityText.includes('marathon')
+      ? 2
+      : 0
   }
 
   return 0
@@ -166,14 +261,14 @@ function scoreLocationMatch(
     cityLng: number | null
     citySlug: string | null
   },
-  crew: {
+  community: {
     city: string
     cityLat: number | null
     cityLng: number | null
     citySlug: string | null
   },
 ) {
-  if (profile.citySlug && crew.citySlug && profile.citySlug === crew.citySlug) {
+  if (profile.citySlug && community.citySlug && profile.citySlug === community.citySlug) {
     return {
       score: 4,
       reason: 'misma ciudad',
@@ -183,14 +278,14 @@ function scoreLocationMatch(
   if (
     profile.cityLat !== null &&
     profile.cityLng !== null &&
-    crew.cityLat !== null &&
-    crew.cityLng !== null
+    community.cityLat !== null &&
+    community.cityLng !== null
   ) {
     const distanceKm = haversineDistanceKm(
       profile.cityLat,
       profile.cityLng,
-      crew.cityLat,
-      crew.cityLng,
+      community.cityLat,
+      community.cityLng,
     )
 
     if (distanceKm <= 15) {
@@ -215,7 +310,7 @@ function scoreLocationMatch(
     }
   }
 
-  if (normalizeText(crew.city) === normalizeText(profile.city)) {
+  if (normalizeText(community.city) === normalizeText(profile.city)) {
     return {
       score: 3,
       reason: 'misma ciudad',
@@ -228,39 +323,39 @@ function scoreLocationMatch(
   }
 }
 
-function crewLocationTier(
+function communityLocationTier(
   profile: {
     city: string
     cityLat: number | null
     cityLng: number | null
     citySlug: string | null
   },
-  crew: {
+  community: {
     city: string
     cityLat: number | null
     cityLng: number | null
     citySlug: string | null
   },
 ) {
-  if (profile.citySlug && crew.citySlug && profile.citySlug === crew.citySlug) {
+  if (profile.citySlug && community.citySlug && profile.citySlug === community.citySlug) {
     return 'same_city' as const
   }
 
-  if (normalizeText(crew.city) === normalizeText(profile.city)) {
+  if (normalizeText(community.city) === normalizeText(profile.city)) {
     return 'same_city' as const
   }
 
   if (
     profile.cityLat !== null &&
     profile.cityLng !== null &&
-    crew.cityLat !== null &&
-    crew.cityLng !== null
+    community.cityLat !== null &&
+    community.cityLng !== null
   ) {
     const distanceKm = haversineDistanceKm(
       profile.cityLat,
       profile.cityLng,
-      crew.cityLat,
-      crew.cityLng,
+      community.cityLat,
+      community.cityLng,
     )
 
     if (distanceKm <= 80) {
@@ -303,7 +398,7 @@ async function geocodeMeetupLocation(input: {
   return null
 }
 
-function scoreCrewForProfile(
+function scoreCommunityForProfile(
   profile: {
     area: string | null
     availabilitySlots: AvailabilitySlot[]
@@ -316,7 +411,7 @@ function scoreCrewForProfile(
     level: string | null
     pace: string
   },
-  crew: {
+  community: {
     city: string
     cityLat: number | null
     cityLng: number | null
@@ -325,30 +420,32 @@ function scoreCrewForProfile(
     meetupDistances: number[]
     meetupDates: Date[]
     name: string
-    pace: string
-    vibe: string
+    pace: string | null
+    vibe: string | null
   },
 ) {
   let score = 0
   const reasons: string[] = []
-  const crewText = normalizeText(`${crew.name} ${crew.city} ${crew.vibe} ${crew.description}`)
-  const locationScore = scoreLocationMatch(profile, crew)
+  const communityText = normalizeText(
+    `${community.name} ${community.city} ${community.vibe ?? ''} ${community.description}`,
+  )
+  const locationScore = scoreLocationMatch(profile, community)
 
   if (locationScore.score > 0 && locationScore.reason) {
     score += locationScore.score
     reasons.push(locationScore.reason)
   }
 
-  if (profile.area && crewText.includes(normalizeText(profile.area))) {
+  if (profile.area && communityText.includes(normalizeText(profile.area))) {
     score += 2
     reasons.push('zona cercana')
   }
 
   const profilePace = parsePaceToSeconds(profile.pace)
-  const crewPace = parsePaceToSeconds(crew.pace)
+  const communityPace = parsePaceToSeconds(community.pace ?? '')
 
-  if (profilePace !== null && crewPace !== null) {
-    const difference = Math.abs(profilePace - crewPace)
+  if (profilePace !== null && communityPace !== null) {
+    const difference = Math.abs(profilePace - communityPace)
 
     if (difference <= 20) {
       score += 3
@@ -364,8 +461,10 @@ function scoreCrewForProfile(
 
   const targetDistance = targetDistanceFromPreference(profile.distance)
 
-  if (targetDistance !== null && crew.meetupDistances.length > 0) {
-    const closestDistance = Math.min(...crew.meetupDistances.map((distance) => Math.abs(distance - targetDistance)))
+  if (targetDistance !== null && community.meetupDistances.length > 0) {
+    const closestDistance = Math.min(
+      ...community.meetupDistances.map((distance) => Math.abs(distance - targetDistance)),
+    )
 
     if (closestDistance <= 2) {
       score += 2
@@ -376,26 +475,29 @@ function scoreCrewForProfile(
     }
   }
 
-  const goalScore = scoreGoalMatch(profile.goals, crewText)
+  const goalScore = scoreGoalMatch(profile.goals, communityText)
 
   if (goalScore > 0) {
     score += goalScore
     reasons.push('metas compatibles')
   }
 
-  const levelScore = scoreLevelMatch(profile.level, crewText)
+  const levelScore = scoreLevelMatch(profile.level, communityText)
 
   if (levelScore > 0) {
     score += levelScore
     reasons.push('nivel compatible')
   }
 
-  if (profile.availabilitySlots.length > 0 && availabilitySlotsOverlap(profile.availabilitySlots, crew.meetupDates)) {
+  if (
+    profile.availabilitySlots.length > 0 &&
+    availabilitySlotsOverlap(profile.availabilitySlots, community.meetupDates)
+  ) {
     score += 1.5
     reasons.push('horarios compatibles')
   }
 
-  if (crew.vibe.includes('social') && !reasons.includes('metas compatibles')) {
+  if ((community.vibe ?? '').includes('social') && !reasons.includes('metas compatibles')) {
     score += 1
   }
 
@@ -405,6 +507,44 @@ function scoreCrewForProfile(
   }
 }
 
+async function getMembershipForUser(
+  ctx: {
+    db: typeof import('@apprunners/db').db
+  },
+  communityId: string,
+  userId: string,
+) {
+  const [membership] = await ctx.db
+    .select({
+      id: member.id,
+      role: member.role,
+      userId: member.userId,
+    })
+    .from(member)
+    .where(and(eq(member.organizationId, communityId), eq(member.userId, userId)))
+    .limit(1)
+
+  return membership ?? null
+}
+
+async function isUserBlockedInCommunity(
+  ctx: {
+    db: typeof import('@apprunners/db').db
+  },
+  communityId: string,
+  userId: string,
+) {
+  const [blocked] = await ctx.db
+    .select({
+      id: communityBlocks.id,
+    })
+    .from(communityBlocks)
+    .where(and(eq(communityBlocks.communityId, communityId), eq(communityBlocks.userId, userId)))
+    .limit(1)
+
+  return Boolean(blocked)
+}
+
 const usernameSchema = z
   .string()
   .trim()
@@ -412,6 +552,14 @@ const usernameSchema = z
   .min(3)
   .max(30)
   .regex(/^[a-z0-9_]+$/)
+
+const communitySlugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(50)
+  .regex(/^[a-z0-9-]+$/)
 
 const profileSettingsSchema = z.object({
   notificationMeetups: z.boolean(),
@@ -450,60 +598,204 @@ export const appRouter = createTRPCRouter({
         return searchMunicipalities(input.query, input.limit)
       }),
   }),
-  crews: createTRPCRouter({
-    list: publicProcedure.query(async ({ ctx }) => {
+  communities: createTRPCRouter({
+    listPublic: publicProcedure.query(async ({ ctx }) => {
       return ctx.db
         .select({
-          id: crews.id,
-          name: crews.name,
-          city: crews.city,
-          pace: crews.pace,
-          vibe: crews.vibe,
-          description: crews.description,
+          id: communities.organizationId,
+          slug: communities.slug,
+          name: communities.name,
+          description: communities.description,
+          kind: communities.kind,
+          mode: communities.mode,
+          visibility: communities.visibility,
+          city: communities.city,
+          pace: communities.pace,
+          vibe: communities.vibe,
         })
-        .from(crews)
-        .orderBy(desc(crews.createdAt))
+        .from(communities)
+        .where(eq(communities.visibility, 'public'))
+        .orderBy(desc(communities.createdAt))
+    }),
+    recommended: protectedProcedure.query(async ({ ctx }) => {
+      const profile = await ctx.db.query.profiles.findFirst({
+        where: eq(profiles.userId, ctx.user.id),
+      })
+
+      const communityRows = await ctx.db
+        .select({
+          id: communities.organizationId,
+          slug: communities.slug,
+          name: communities.name,
+          description: communities.description,
+          kind: communities.kind,
+          mode: communities.mode,
+          visibility: communities.visibility,
+          city: communities.city,
+          citySlug: communities.citySlug,
+          cityProvince: communities.cityProvince,
+          cityLat: communities.cityLat,
+          cityLng: communities.cityLng,
+          pace: communities.pace,
+          vibe: communities.vibe,
+        })
+        .from(communities)
+        .where(eq(communities.visibility, 'public'))
+        .orderBy(desc(communities.createdAt))
+
+      const communityMeetups = await ctx.db
+        .select({
+          communityId: meetups.communityId,
+          distanceKm: meetups.distanceKm,
+          startsAt: meetups.startsAt,
+        })
+        .from(meetups)
+        .where(gte(meetups.startsAt, new Date()))
+
+      if (!profile) {
+        return communityRows.map((community) => ({
+          ...community,
+          recommendationReason: 'completa tu perfil',
+          recommendationScore: 0,
+        }))
+      }
+
+      const scoredCommunities = communityRows.map((community) => {
+        const meetupRowsForCommunity = communityMeetups.filter(
+          (meetup) => meetup.communityId === community.id,
+        )
+        const recommendation = scoreCommunityForProfile(
+          {
+            area: profile.area,
+            availabilitySlots: profile.availabilitySlots ?? [],
+            city: profile.city,
+            cityLat: profile.cityLat,
+            cityLng: profile.cityLng,
+            citySlug: profile.citySlug,
+            distance: profile.distance,
+            goals: profile.goals,
+            level: profile.level,
+            pace: profile.pace,
+          },
+          {
+            city: community.city,
+            cityLat: community.cityLat,
+            cityLng: community.cityLng,
+            citySlug: community.citySlug,
+            description: community.description,
+            meetupDates: meetupRowsForCommunity.map((meetup) => meetup.startsAt),
+            meetupDistances: meetupRowsForCommunity.map((meetup) => meetup.distanceKm),
+            name: community.name,
+            pace: community.pace,
+            vibe: community.vibe,
+          },
+        )
+
+        const locationTier = communityLocationTier(
+          {
+            city: profile.city,
+            cityLat: profile.cityLat,
+            cityLng: profile.cityLng,
+            citySlug: profile.citySlug,
+          },
+          {
+            city: community.city,
+            cityLat: community.cityLat,
+            cityLng: community.cityLng,
+            citySlug: community.citySlug,
+          },
+        )
+
+        return {
+          ...community,
+          locationTier,
+          recommendationReason: recommendation.reason,
+          recommendationScore: recommendation.score,
+        }
+      })
+
+      const hasSameCityCommunities = scoredCommunities.some(
+        (community) => community.locationTier === 'same_city',
+      )
+      const hasNearbyCommunities = scoredCommunities.some(
+        (community) => community.locationTier === 'nearby',
+      )
+      const locationTierPriority = hasSameCityCommunities
+        ? { same_city: 0, nearby: 1, other: 2 }
+        : hasNearbyCommunities
+          ? { nearby: 0, same_city: 0, other: 1 }
+          : { same_city: 0, nearby: 0, other: 0 }
+
+      return scoredCommunities
+        .sort((left, right) => {
+          const tierDifference =
+            locationTierPriority[left.locationTier] - locationTierPriority[right.locationTier]
+
+          if (tierDifference !== 0) {
+            return tierDifference
+          }
+
+          return right.recommendationScore - left.recommendationScore
+        })
+        .map(({ locationTier: _locationTier, ...community }) => community)
     }),
     byId: publicProcedure
       .input(
         z.object({
-          id: z.number().int().positive(),
+          id: z.string().min(1),
         }),
       )
       .query(async ({ ctx, input }) => {
-        const [crew] = await ctx.db
+        const [community] = await ctx.db
           .select({
-            id: crews.id,
-            name: crews.name,
-            city: crews.city,
-            pace: crews.pace,
-            vibe: crews.vibe,
-            description: crews.description,
+            id: communities.organizationId,
+            slug: communities.slug,
+            name: communities.name,
+            description: communities.description,
+            kind: communities.kind,
+            mode: communities.mode,
+            visibility: communities.visibility,
+            city: communities.city,
+            pace: communities.pace,
+            vibe: communities.vibe,
           })
-          .from(crews)
-          .where(eq(crews.id, input.id))
+          .from(communities)
+          .where(eq(communities.organizationId, input.id))
           .limit(1)
 
-        if (!crew) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa crew.' })
+        if (!community) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
+        }
+
+        const viewerMembership = ctx.user
+          ? await getMembershipForUser(ctx, input.id, ctx.user.id)
+          : null
+
+        if (community.visibility === 'private' && !viewerMembership) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
         }
 
         const upcomingMeetups = await ctx.db
           .select({
-            crewName: crews.name,
-            createdByUserId: meetups.createdByUserId,
-            distanceKm: meetups.distanceKm,
             id: meetups.id,
+            communityId: communities.organizationId,
+            communityKind: communities.kind,
+            communityName: communities.name,
+            distanceKm: meetups.distanceKm,
             location: meetups.location,
             startsAt: meetups.startsAt,
             title: meetups.title,
+            visibility: meetups.visibility,
           })
           .from(meetups)
-          .innerJoin(crews, eq(meetups.crewId, crews.id))
-          .where(and(eq(meetups.crewId, input.id), gte(meetups.startsAt, new Date())))
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .where(and(eq(meetups.communityId, input.id), gte(meetups.startsAt, new Date())))
           .orderBy(asc(meetups.startsAt))
 
-        const meetupIds = upcomingMeetups.map((meetup) => meetup.id)
+        const visibleMeetups = upcomingMeetups.filter((meetup) =>
+          canViewerSeeMeetup(Boolean(viewerMembership), community.visibility, meetup.visibility),
+        )
+        const meetupIds = visibleMeetups.map((meetup) => meetup.id)
         const rsvpRows =
           meetupIds.length > 0
             ? await ctx.db
@@ -515,36 +807,29 @@ export const appRouter = createTRPCRouter({
                 .where(inArray(meetupRsvps.meetupId, meetupIds))
             : []
 
-        const activeUserIds = [
-          ...new Set([
-            ...upcomingMeetups.map((meetup) => meetup.createdByUserId).filter(isPresent),
-            ...rsvpRows.map((rsvp) => rsvp.userId),
-          ]),
-        ]
-
-        const activeRunners =
-          activeUserIds.length > 0
-            ? await ctx.db
-                .select({
-                  area: profiles.area,
-                  city: profiles.city,
-                  goals: profiles.goals,
-                  id: profiles.id,
-                  level: profiles.level,
-                  pace: profiles.pace,
-                  publicProfile: profiles.publicProfile,
-                  showArea: profiles.showArea,
-                  showCity: profiles.showCity,
-                  username: profiles.username,
-                  userId: profiles.userId,
-                })
-                .from(profiles)
-                .where(inArray(profiles.userId, activeUserIds))
-            : []
+        const activeMembers = await ctx.db
+          .select({
+            area: profiles.area,
+            city: profiles.city,
+            goals: profiles.goals,
+            id: profiles.id,
+            level: profiles.level,
+            pace: profiles.pace,
+            publicProfile: profiles.publicProfile,
+            showArea: profiles.showArea,
+            showCity: profiles.showCity,
+            username: profiles.username,
+          })
+          .from(member)
+          .innerJoin(profiles, eq(member.userId, profiles.userId))
+          .where(eq(member.organizationId, input.id))
 
         return {
-          crew,
-          upcomingMeetups: upcomingMeetups.map((meetup) => {
+          community: {
+            ...community,
+            viewerMembershipRole: viewerMembership?.role ?? null,
+          },
+          upcomingMeetups: visibleMeetups.map((meetup) => {
             const meetupRsvpRows = rsvpRows.filter((rsvp) => rsvp.meetupId === meetup.id)
 
             return {
@@ -555,7 +840,7 @@ export const appRouter = createTRPCRouter({
                 : false,
             }
           }),
-          activeRunners: activeRunners
+          activeRunners: activeMembers
             .filter((profile) => profile.publicProfile && profile.username)
             .map((profile) => ({
               id: profile.id,
@@ -568,124 +853,218 @@ export const appRouter = createTRPCRouter({
             })),
         }
       }),
-    recommended: protectedProcedure.query(async ({ ctx }) => {
-      const profile = await ctx.db.query.profiles.findFirst({
-        where: eq(profiles.userId, ctx.user.id),
-      })
-
-      const crewRows = await ctx.db
+    myMemberships: protectedProcedure.query(async ({ ctx }) => {
+      const rows = await ctx.db
         .select({
-          id: crews.id,
-          name: crews.name,
-          city: crews.city,
-          citySlug: crews.citySlug,
-          cityProvince: crews.cityProvince,
-          cityLat: crews.cityLat,
-          cityLng: crews.cityLng,
-          pace: crews.pace,
-          vibe: crews.vibe,
-          description: crews.description,
+          id: communities.organizationId,
+          slug: communities.slug,
+          name: communities.name,
+          description: communities.description,
+          kind: communities.kind,
+          mode: communities.mode,
+          visibility: communities.visibility,
+          city: communities.city,
+          pace: communities.pace,
+          vibe: communities.vibe,
+          role: member.role,
         })
-        .from(crews)
-        .orderBy(desc(crews.createdAt))
+        .from(member)
+        .innerJoin(communities, eq(member.organizationId, communities.organizationId))
+        .where(eq(member.userId, ctx.user.id))
+        .orderBy(desc(communities.createdAt))
 
-      const crewMeetups = await ctx.db
-        .select({
-          crewId: meetups.crewId,
-          distanceKm: meetups.distanceKm,
-          startsAt: meetups.startsAt,
-        })
-        .from(meetups)
-        .where(gte(meetups.startsAt, new Date()))
-
-      if (!profile) {
-        return crewRows.map(({ cityLat: _cityLat, cityLng: _cityLng, cityProvince: _cityProvince, citySlug: _citySlug, ...crew }) => ({
-          ...crew,
-          recommendationReason: 'complete your profile',
-          recommendationScore: 0,
-        }))
-      }
-
-      const scoredCrews = crewRows
-        .map((crew) => {
-          const meetupRowsForCrew = crewMeetups.filter((meetup) => meetup.crewId === crew.id)
-          const recommendation = scoreCrewForProfile(
-            {
-              area: profile.area,
-              availabilitySlots: profile.availabilitySlots ?? [],
-              city: profile.city,
-              cityLat: profile.cityLat,
-              cityLng: profile.cityLng,
-              citySlug: profile.citySlug,
-              distance: profile.distance,
-              goals: profile.goals,
-              level: profile.level,
-              pace: profile.pace,
-            },
-            {
-              city: crew.city,
-              cityLat: crew.cityLat,
-              cityLng: crew.cityLng,
-              citySlug: crew.citySlug,
-              description: crew.description,
-              meetupDates: meetupRowsForCrew.map((meetup) => meetup.startsAt),
-              meetupDistances: meetupRowsForCrew.map((meetup) => meetup.distanceKm),
-              name: crew.name,
-              pace: crew.pace,
-              vibe: crew.vibe,
-            },
-          )
-          const locationTier = crewLocationTier(
-            {
-              city: profile.city,
-              cityLat: profile.cityLat,
-              cityLng: profile.cityLng,
-              citySlug: profile.citySlug,
-            },
-            {
-              city: crew.city,
-              cityLat: crew.cityLat,
-              cityLng: crew.cityLng,
-              citySlug: crew.citySlug,
-            },
-          )
-
-          return {
-            id: crew.id,
-            name: crew.name,
-            city: crew.city,
-            pace: crew.pace,
-            vibe: crew.vibe,
-            description: crew.description,
-            locationTier,
-            recommendationReason: recommendation.reason,
-            recommendationScore: recommendation.score,
-          }
-        })
-      const hasSameCityCrews = scoredCrews.some((crew) => crew.locationTier === 'same_city')
-      const hasNearbyCrews = scoredCrews.some((crew) => crew.locationTier === 'nearby')
-      const locationTierPriority = hasSameCityCrews
-        ? { same_city: 0, nearby: 1, other: 2 }
-        : hasNearbyCrews
-          ? { nearby: 0, same_city: 0, other: 1 }
-          : { same_city: 0, nearby: 0, other: 0 }
-
-      return scoredCrews
-        .sort((left, right) => {
-          const tierDifference =
-            locationTierPriority[left.locationTier] - locationTierPriority[right.locationTier]
-
-          if (tierDifference !== 0) {
-            return tierDifference
-          }
-
-          return right.recommendationScore - left.recommendationScore
-        })
-        .map(({ locationTier: _locationTier, ...crew }) => crew)
+      return rows.map((row) => ({
+        ...row,
+        canCreateRuns: canOrganizeCommunityMeetup(row.mode, row.role),
+        primaryRole: getPrimaryRole(row.role),
+      }))
     }),
+    hostable: protectedProcedure.query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({
+          id: communities.organizationId,
+          slug: communities.slug,
+          name: communities.name,
+          description: communities.description,
+          kind: communities.kind,
+          mode: communities.mode,
+          visibility: communities.visibility,
+          city: communities.city,
+          pace: communities.pace,
+          vibe: communities.vibe,
+          role: member.role,
+        })
+        .from(member)
+        .innerJoin(communities, eq(member.organizationId, communities.organizationId))
+        .where(eq(member.userId, ctx.user.id))
+        .orderBy(desc(communities.createdAt))
+
+      const blockedRows = await ctx.db
+        .select({
+          communityId: communityBlocks.communityId,
+        })
+        .from(communityBlocks)
+        .where(eq(communityBlocks.userId, ctx.user.id))
+
+      const blockedCommunityIds = new Set(blockedRows.map((row) => row.communityId))
+
+      return rows
+        .filter((row) => !blockedCommunityIds.has(row.id))
+        .filter((row) => canOrganizeCommunityMeetup(row.mode, row.role))
+        .map((row) => ({
+          ...row,
+          primaryRole: getPrimaryRole(row.role),
+        }))
+    }),
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(2).max(80),
+          slug: communitySlugSchema,
+          description: z.string().min(8).max(500),
+          kind: communityKindSchema,
+          mode: communityModeSchema,
+          visibility: communityVisibilitySchema,
+          citySelection: municipalitySelectionSchema,
+          pace: z.string().max(32).optional(),
+          vibe: z.string().max(80).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const existingCommunity = await ctx.db.query.communities.findFirst({
+          where: eq(communities.slug, input.slug),
+        })
+
+        if (existingCommunity) {
+          throw new TRPCError({ code: 'CONFLICT', message: 'Ese slug ya está en uso.' })
+        }
+
+        const existingOrganization = await ctx.db.query.organization.findFirst({
+          where: eq(organization.slug, input.slug),
+        })
+
+        if (existingOrganization) {
+          throw new TRPCError({ code: 'CONFLICT', message: 'Ese slug ya está en uso.' })
+        }
+
+        const organizationId = randomUUID()
+        const now = new Date()
+
+        await ctx.db.transaction(async (tx) => {
+          await tx.insert(organization).values({
+            createdAt: now,
+            id: organizationId,
+            metadata: null,
+            name: input.name,
+            slug: input.slug,
+            updatedAt: now,
+          })
+
+          await tx.insert(member).values({
+            createdAt: now,
+            id: randomUUID(),
+            organizationId,
+            role: 'owner',
+            userId: ctx.user.id,
+          })
+
+          await tx.insert(communities).values({
+            city: input.citySelection.municipality,
+            cityLat: input.citySelection.latitude,
+            cityLng: input.citySelection.longitude,
+            cityProvince: input.citySelection.province,
+            citySlug: input.citySelection.slug,
+            createdAt: now,
+            description: input.description,
+            kind: input.kind,
+            mode: input.mode,
+            name: input.name,
+            organizationId,
+            pace: input.pace ?? null,
+            slug: input.slug,
+            updatedAt: now,
+            vibe: input.vibe ?? null,
+            visibility: input.visibility,
+          })
+        })
+
+        return {
+          id: organizationId,
+          slug: input.slug,
+        }
+      }),
+    joinPublic: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const community = await ctx.db.query.communities.findFirst({
+          where: eq(communities.organizationId, input.communityId),
+        })
+
+        if (!community) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
+        }
+
+        if (community.visibility !== 'public') {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Esta comunidad requiere invitación o acceso directo.',
+          })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, input.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes unirte a esta comunidad.',
+          })
+        }
+
+        const existingMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+
+        if (!existingMembership) {
+          await ctx.db.insert(member).values({
+            createdAt: new Date(),
+            id: randomUUID(),
+            organizationId: input.communityId,
+            role: 'member',
+            userId: ctx.user.id,
+          })
+        }
+
+        return { ok: true }
+      }),
+    leave: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const existingMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+
+        if (!existingMembership) {
+          return { ok: true }
+        }
+
+        if (hasAnyRole(existingMembership.role, ['owner'])) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'El owner no puede salir de la comunidad sin transferirla primero.',
+          })
+        }
+
+        await ctx.db
+          .delete(member)
+          .where(and(eq(member.organizationId, input.communityId), eq(member.userId, ctx.user.id)))
+
+        return { ok: true }
+      }),
   }),
   meetups: createTRPCRouter({
-    upcoming: publicProcedure.query(async ({ ctx }) => {
+    upcomingPublic: publicProcedure.query(async ({ ctx }) => {
       const viewerProfile = ctx.user
         ? await ctx.db.query.profiles.findFirst({
             where: eq(profiles.userId, ctx.user.id),
@@ -694,26 +1073,26 @@ export const appRouter = createTRPCRouter({
 
       const upcomingMeetups = await ctx.db
         .select({
-          crewName: crews.name,
-          crewId: crews.id,
-          crewCityLat: crews.cityLat,
-          crewCityLng: crews.cityLng,
-          distanceKm: meetups.distanceKm,
           id: meetups.id,
+          communityId: communities.organizationId,
+          communityKind: communities.kind,
+          communityName: communities.name,
+          communityCityLat: communities.cityLat,
+          communityCityLng: communities.cityLng,
+          distanceKm: meetups.distanceKm,
           location: meetups.location,
           locationLat: meetups.locationLat,
           locationLng: meetups.locationLng,
           startsAt: meetups.startsAt,
           title: meetups.title,
+          visibility: meetups.visibility,
         })
         .from(meetups)
-        .innerJoin(crews, eq(meetups.crewId, crews.id))
-        .where(gte(meetups.startsAt, new Date()))
+        .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+        .where(and(eq(communities.visibility, 'public'), eq(meetups.visibility, 'public'), gte(meetups.startsAt, new Date())))
         .orderBy(asc(meetups.startsAt))
 
-      const meetupIds = upcomingMeetups.map((meetup) => meetup.id)
-
-      if (meetupIds.length === 0) {
+      if (upcomingMeetups.length === 0) {
         return []
       }
 
@@ -723,13 +1102,13 @@ export const appRouter = createTRPCRouter({
           userId: meetupRsvps.userId,
         })
         .from(meetupRsvps)
-        .where(inArray(meetupRsvps.meetupId, meetupIds))
+        .where(inArray(meetupRsvps.meetupId, upcomingMeetups.map((meetup) => meetup.id)))
 
       return upcomingMeetups
         .map((meetup) => {
           const meetupRsvpRows = rsvpRows.filter((rsvp) => rsvp.meetupId === meetup.id)
-          const meetupLatitude = meetup.locationLat ?? meetup.crewCityLat
-          const meetupLongitude = meetup.locationLng ?? meetup.crewCityLng
+          const meetupLatitude = meetup.locationLat ?? meetup.communityCityLat
+          const meetupLongitude = meetup.locationLng ?? meetup.communityCityLng
           const distanceFromViewerKm =
             viewerProfile?.cityLat !== null &&
             viewerProfile?.cityLat !== undefined &&
@@ -748,8 +1127,9 @@ export const appRouter = createTRPCRouter({
               : null
 
           return {
-            crewId: meetup.crewId,
-            crewName: meetup.crewName,
+            communityId: meetup.communityId,
+            communityKind: meetup.communityKind,
+            communityName: meetup.communityName,
             distanceFromViewerKm,
             distanceKm: meetup.distanceKm,
             id: meetup.id,
@@ -781,7 +1161,7 @@ export const appRouter = createTRPCRouter({
     create: protectedProcedure
       .input(
         z.object({
-          crewId: z.number().int().positive(),
+          communityId: z.string().min(1),
           distanceKm: z.number().int().positive(),
           location: z.string().min(2),
           startsAt: z.string().datetime(),
@@ -789,39 +1169,48 @@ export const appRouter = createTRPCRouter({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const [crew] = await ctx.db
-          .select({
-            city: crews.city,
-            cityLat: crews.cityLat,
-            cityLng: crews.cityLng,
-            cityProvince: crews.cityProvince,
-            id: crews.id,
-          })
-          .from(crews)
-          .where(eq(crews.id, input.crewId))
-          .limit(1)
+        const community = await ctx.db.query.communities.findFirst({
+          where: eq(communities.organizationId, input.communityId),
+        })
 
-        if (!crew) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa crew.' })
+        if (!community) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, input.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes organizar quedadas en esta comunidad.',
+          })
+        }
+
+        const membership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+
+        if (!membership || !canOrganizeCommunityMeetup(community.mode, membership.role)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes organizar quedadas en esta comunidad.',
+          })
         }
 
         const geocodedLocation = await geocodeMeetupLocation({
-          city: crew.city,
+          city: community.city,
           location: input.location,
-          province: crew.cityProvince,
+          province: community.cityProvince,
         })
 
         const [createdMeetup] = await ctx.db
           .insert(meetups)
           .values({
-            crewId: input.crewId,
+            communityId: input.communityId,
             createdByUserId: ctx.user.id,
             distanceKm: input.distanceKm,
             location: input.location,
-            locationLat: geocodedLocation?.latitude ?? crew.cityLat ?? null,
-            locationLng: geocodedLocation?.longitude ?? crew.cityLng ?? null,
+            locationLat: geocodedLocation?.latitude ?? community.cityLat ?? null,
+            locationLng: geocodedLocation?.longitude ?? community.cityLng ?? null,
             startsAt: new Date(input.startsAt),
             title: input.title,
+            visibility: community.visibility === 'private' ? 'members' : 'public',
           })
           .returning()
 
@@ -834,8 +1223,45 @@ export const appRouter = createTRPCRouter({
         }),
       )
       .mutation(async ({ ctx, input }) => {
+        const [meetup] = await ctx.db
+          .select({
+            communityId: communities.organizationId,
+            communityVisibility: communities.visibility,
+            meetupId: meetups.id,
+            meetupVisibility: meetups.visibility,
+          })
+          .from(meetups)
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .where(eq(meetups.id, input.meetupId))
+          .limit(1)
+
+        if (!meetup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, meetup.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes apuntarte a esta quedada.',
+          })
+        }
+
+        const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+        const canSeeMeetup = canViewerSeeMeetup(
+          Boolean(membership),
+          meetup.communityVisibility,
+          meetup.meetupVisibility,
+        )
+
+        if (!canSeeMeetup) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Necesitas formar parte de la comunidad para apuntarte.',
+          })
+        }
+
         const [existing] = await ctx.db
-          .select()
+          .select({ id: meetupRsvps.id })
           .from(meetupRsvps)
           .where(and(eq(meetupRsvps.meetupId, input.meetupId), eq(meetupRsvps.userId, ctx.user.id)))
           .limit(1)
@@ -914,20 +1340,20 @@ export const appRouter = createTRPCRouter({
             .update(profiles)
             .set({
               availability: input.availability,
+              availabilitySlots: input.availabilitySlots ?? [],
+              area: input.area,
               bio: input.bio,
               city: cityName,
               cityLat: input.citySelection?.latitude ?? existing.cityLat,
               cityLng: input.citySelection?.longitude ?? existing.cityLng,
               cityProvince: input.citySelection?.province ?? existing.cityProvince,
               citySlug: input.citySelection?.slug ?? existing.citySlug,
-              pace: input.pace,
-              username: input.username ?? existing.username,
-              level: input.level,
               distance: input.distance,
               goals: input.goals,
-              area: input.area,
-              availabilitySlots: input.availabilitySlots ?? [],
+              level: input.level,
+              pace: input.pace,
               updatedAt: new Date(),
+              username: input.username ?? existing.username,
             })
             .where(eq(profiles.userId, ctx.user.id))
             .returning()
@@ -939,20 +1365,20 @@ export const appRouter = createTRPCRouter({
           .insert(profiles)
           .values({
             availability: input.availability,
+            availabilitySlots: input.availabilitySlots ?? [],
+            area: input.area,
             bio: input.bio,
             city: input.citySelection?.municipality ?? input.city,
             cityLat: input.citySelection?.latitude,
             cityLng: input.citySelection?.longitude,
             cityProvince: input.citySelection?.province,
             citySlug: input.citySelection?.slug,
-            pace: input.pace,
-            username: input.username,
-            level: input.level,
             distance: input.distance,
             goals: input.goals,
-            area: input.area,
-            availabilitySlots: input.availabilitySlots ?? [],
+            level: input.level,
+            pace: input.pace,
             userId: ctx.user.id,
+            username: input.username,
           })
           .returning()
 
@@ -1038,18 +1464,35 @@ export const appRouter = createTRPCRouter({
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Este perfil no es público.' })
         }
 
+        const viewerMembershipRows =
+          ctx.user && !isSelf
+            ? await ctx.db
+                .select({
+                  communityId: member.organizationId,
+                })
+                .from(member)
+                .where(eq(member.userId, ctx.user.id))
+            : []
+        const viewerCommunityIds = new Set(
+          viewerMembershipRows.map((membership) => membership.communityId),
+        )
+
         const upcomingMeetups = await ctx.db
           .select({
-            crewName: crews.name,
+            communityId: communities.organizationId,
+            communityKind: communities.kind,
+            communityName: communities.name,
+            communityVisibility: communities.visibility,
             createdByUserId: meetups.createdByUserId,
             distanceKm: meetups.distanceKm,
             id: meetups.id,
             location: meetups.location,
             startsAt: meetups.startsAt,
             title: meetups.title,
+            visibility: meetups.visibility,
           })
           .from(meetups)
-          .innerJoin(crews, eq(meetups.crewId, crews.id))
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
           .where(gte(meetups.startsAt, new Date()))
           .orderBy(asc(meetups.startsAt))
 
@@ -1066,11 +1509,25 @@ export const appRouter = createTRPCRouter({
             : []
 
         const profileMeetups = upcomingMeetups
-          .filter(
-            (meetup) =>
+          .filter((meetup) => {
+            const profileIsInMeetup =
               meetup.createdByUserId === profile.userId ||
-              rsvpRows.some((rsvp) => rsvp.meetupId === meetup.id && rsvp.userId === profile.userId),
-          )
+              rsvpRows.some((rsvp) => rsvp.meetupId === meetup.id && rsvp.userId === profile.userId)
+
+            if (!profileIsInMeetup) {
+              return false
+            }
+
+            if (isSelf) {
+              return true
+            }
+
+            return canViewerSeeMeetup(
+              viewerCommunityIds.has(meetup.communityId),
+              meetup.communityVisibility,
+              meetup.visibility,
+            )
+          })
           .slice(0, 6)
 
         return {

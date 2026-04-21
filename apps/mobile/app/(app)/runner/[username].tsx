@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { Text, View } from 'react-native';
 
+import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { AppCard, Chip, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
 import { trpc } from '@/lib/trpc';
 
@@ -76,10 +77,17 @@ export default function PublicRunnerScreen() {
   );
   const runner = runnerQuery.data?.profile;
   const goals = listFromCommaValue(runner?.goals);
+  const { onRefresh, refreshing } = usePullToRefresh(async () => {
+    if (!username) {
+      return;
+    }
+
+    await runnerQuery.refetch();
+  });
 
   if (runnerQuery.error) {
     return (
-      <ScreenScroll>
+      <ScreenScroll onRefresh={username ? onRefresh : undefined} refreshing={refreshing}>
         <AppCard>
           <Text className="text-[25px] font-black text-text">Perfil no disponible</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">{runnerQuery.error.message}</Text>
@@ -89,7 +97,7 @@ export default function PublicRunnerScreen() {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={username ? onRefresh : undefined} refreshing={refreshing}>
       <HeroPanel
         kicker={runner?.isSelf ? 'Tu perfil público' : 'Runner'}
         title={runner?.username ? `@${runner.username}` : 'Cargando...'}
@@ -133,7 +141,7 @@ export default function PublicRunnerScreen() {
           </Text>
           <Text className="text-[22px] font-black text-text">{meetup.title}</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">
-            {meetup.crewName} · {meetup.distanceKm} km · {meetup.location}
+            {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
           </Text>
         </AppCard>
       ))}

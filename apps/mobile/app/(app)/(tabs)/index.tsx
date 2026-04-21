@@ -2,8 +2,10 @@ import { Link } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
+import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { AppCard, Chip, HeroPanel, ScreenScroll } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
+import { labelForCommunityKind } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 function formatMeetupLabel(startsAt: string | Date) {
@@ -32,20 +34,26 @@ export default function TodayScreen() {
     enabled: !!session,
     retry: false,
   });
-  const meetupsQuery = trpc.meetups.upcoming.useQuery();
-  const recommendedQuery = trpc.crews.recommended.useQuery(undefined, {
+  const meetupsQuery = trpc.meetups.upcomingPublic.useQuery();
+  const recommendedQuery = trpc.communities.recommended.useQuery(undefined, {
     enabled: !!session,
     retry: false,
   });
   const profile = profileQuery.data?.profile;
   const nextMeetup = meetupsQuery.data?.[0];
-  const recommendedCrews = recommendedQuery.data?.slice(0, 3) ?? [];
+  const recommendedCommunities = recommendedQuery.data?.slice(0, 3) ?? [];
   const nextMeetupDistance = formatViewerDistance(nextMeetup?.distanceFromViewerKm);
+  const { onRefresh, refreshing } = usePullToRefresh(async () => {
+    await Promise.all([
+      meetupsQuery.refetch(),
+      ...(session ? [profileQuery.refetch(), recommendedQuery.refetch()] : []),
+    ]);
+  });
 
   return (
-    <ScreenScroll>
+    <ScreenScroll onRefresh={onRefresh} refreshing={refreshing}>
       <HeroPanel
-        body="Tu punto de partida para encontrar crews, quedar para correr y mantener tu ritmo social."
+        body="Tu punto de partida para descubrir runs públicos, crews locales y comunidades con estructura."
         kicker="Hoy en AppRunners"
         title={`Hola, ${session?.user.name ?? 'runner'}.`}
       />
@@ -76,7 +84,7 @@ export default function TodayScreen() {
         <Text className="text-[15px] leading-[23px] text-muted-text">
           {profile
             ? `${profile.city} · ${profile.pace}${profile.availability ? ` · ${profile.availability}` : ''}`
-            : 'Dinos dónde corres y a qué ritmo para ordenar crews y quedadas por compatibilidad.'}
+            : 'Dinos dónde corres y a qué ritmo para ordenar comunidades y quedadas por compatibilidad.'}
         </Text>
         <Link href="/profile" asChild>
           <Pressable
@@ -100,7 +108,7 @@ export default function TodayScreen() {
           <>
             <Text className="text-[25px] font-black leading-[29px] text-hero-text">{nextMeetup.title}</Text>
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
-              {formatMeetupLabel(nextMeetup.startsAt)} · {nextMeetup.crewName}
+              {formatMeetupLabel(nextMeetup.startsAt)} · {nextMeetup.communityName}
             </Text>
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
               {nextMeetup.distanceKm} km · {nextMeetup.location} · {nextMeetup.rsvpCount} apuntados
@@ -113,7 +121,7 @@ export default function TodayScreen() {
           <>
             <Text className="text-[25px] font-black leading-[29px] text-hero-text">Aún no hay planes activos.</Text>
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
-              Crea la primera quedada y dale una excusa a tu crew para salir.
+              Crea la primera quedada y dale una excusa a tu comunidad para salir.
             </Text>
           </>
         )}
@@ -128,23 +136,25 @@ export default function TodayScreen() {
 
       <AppCard>
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Crews recomendadas</Text>
+          <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Comunidades recomendadas</Text>
           {recommendedQuery.isPending ? <ActivityIndicator color={colors.tint} /> : null}
         </View>
-        {recommendedCrews.length > 0 ? (
+        {recommendedCommunities.length > 0 ? (
           <>
-            {recommendedCrews.map((crew) => (
-              <Link key={crew.id} href={`/crew/${crew.id}` as any} asChild>
+            {recommendedCommunities.map((community) => (
+              <Link key={community.id} href={`/crew/${community.id}` as any} asChild>
                 <Pressable
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                   className="rounded-[18px] bg-chip px-4 py-3">
                   <View className="gap-1.5">
                     <View className="flex-row items-start justify-between gap-2">
-                      <Text className="flex-1 text-[18px] font-black leading-6 text-text">{crew.name}</Text>
+                      <Text className="flex-1 text-[18px] font-black leading-6 text-text">{community.name}</Text>
                       <Chip tone="warm">Match</Chip>
                     </View>
                     <Text className="text-[14px] font-bold leading-5 text-muted-text">
-                      {crew.city} · {crew.pace} · {crew.recommendationReason}
+                      {labelForCommunityKind(community.kind)} · {community.city}
+                      {community.pace ? ` · ${community.pace}` : ''}
+                      {community.recommendationReason ? ` · ${community.recommendationReason}` : ''}
                     </Text>
                   </View>
                 </Pressable>
@@ -155,7 +165,7 @@ export default function TodayScreen() {
           <>
             <Text className="text-2xl font-black leading-7 text-text">Sin recomendación todavía.</Text>
             <Text className="text-[15px] leading-[23px] text-muted-text">
-              Cuando completes tu perfil, AppRunners priorizará crews por ciudad y ritmo.
+              Cuando completes tu perfil, AppRunners priorizará comunidades por ciudad y ritmo.
             </Text>
           </>
         )}
@@ -163,7 +173,7 @@ export default function TodayScreen() {
           <Pressable
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             className="mt-2 self-start rounded-2xl bg-chip px-4 py-3">
-            <Text className="text-sm font-black text-text">Ver crews</Text>
+            <Text className="text-sm font-black text-text">Ver comunidades</Text>
           </Pressable>
         </Link>
       </AppCard>

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   PressableProps,
+  RefreshControl,
   ScrollView,
   ScrollViewProps,
   StyleProp,
@@ -20,6 +21,8 @@ type StyledChildrenProps = PropsWithChildren<{
 type ScreenScrollProps = PropsWithChildren<
   ScrollViewProps & {
     contentStyle?: StyleProp<ViewStyle>;
+    onRefresh?: () => void;
+    refreshing?: boolean;
   }
 >;
 
@@ -49,13 +52,36 @@ type AppButtonProps = Omit<PressableProps, 'style'> & {
   tone?: 'primary' | 'secondary' | 'danger';
 };
 
-export function ScreenScroll({ children, contentStyle, style, ...props }: ScreenScrollProps) {
+export function ScreenScroll({
+  children,
+  contentStyle,
+  onRefresh,
+  refreshControl,
+  refreshing = false,
+  style,
+  ...props
+}: ScreenScrollProps) {
+  const { colors } = useAppTheme();
+
   return (
     <ScrollView
+      alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControl)}
       className="flex-1 bg-background"
       style={style}
       contentContainerClassName="gap-4 px-[18px] pt-[18px] pb-[140px]"
       contentContainerStyle={contentStyle}
+      refreshControl={
+        refreshControl ??
+        (onRefresh ? (
+          <RefreshControl
+            colors={[colors.tint]}
+            onRefresh={onRefresh}
+            progressBackgroundColor={colors.surface}
+            refreshing={refreshing}
+            tintColor={colors.tint}
+          />
+        ) : undefined)
+      }
       showsVerticalScrollIndicator={false}
       {...props}>
       {children}
