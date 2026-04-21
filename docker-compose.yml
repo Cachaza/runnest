@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: apprunners-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: apprunners
+      POSTGRES_USER: apprunners
+      POSTGRES_PASSWORD: apprunners
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apprunners -d apprunners"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:
