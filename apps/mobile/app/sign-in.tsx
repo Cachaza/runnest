@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { authClient } from '@/lib/auth-client';
 import { queryClient } from '@/lib/trpc';
 
@@ -21,7 +20,7 @@ type AuthMode = 'sign-up' | 'sign-in';
 export default function SignInScreen() {
   const { colors } = useAppTheme();
   const [mode, setMode] = useState<AuthMode>('sign-up');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -29,13 +28,18 @@ export default function SignInScreen() {
   const isSignUp = mode === 'sign-up';
 
   async function handleSubmit() {
-    const trimmedName = name.trim();
+    const trimmedUsername = username.trim().replace(/^@+/, '').toLowerCase();
     const trimmedEmail = email.trim().toLowerCase();
 
     setError(null);
 
-    if (isSignUp && trimmedName.length < 2) {
-      setError('Escribe tu nombre para crear la cuenta.');
+    if (isSignUp && trimmedUsername.length < 3) {
+      setError('El username debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    if (isSignUp && !/^[a-z0-9_]+$/.test(trimmedUsername)) {
+      setError('El username solo puede tener letras, números y guiones bajos.');
       return;
     }
 
@@ -55,7 +59,7 @@ export default function SignInScreen() {
       const result = isSignUp
         ? await authClient.signUp.email({
             email: trimmedEmail,
-            name: trimmedName,
+            name: trimmedUsername,
             password,
           })
         : await authClient.signIn.email({
@@ -70,7 +74,7 @@ export default function SignInScreen() {
 
       setPassword('');
       await queryClient.invalidateQueries();
-      router.replace('/');
+      router.replace(isSignUp ? '/onboarding' : '/');
     } catch {
       setError('No se pudo conectar con AppRunners. Revisa la API e inténtalo de nuevo.');
     } finally {
@@ -88,10 +92,7 @@ export default function SignInScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerClassName="gap-[18px] px-[18px] pb-[42px] pt-16">
         <View className="min-h-[270px] rounded-[34px] bg-hero p-6">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-xs font-black uppercase tracking-[1.4px] text-hero-accent">AppRunners</Text>
-            <ThemeToggle />
-          </View>
+          <Text className="text-xs font-black uppercase tracking-[1.4px] text-hero-accent">AppRunners</Text>
           <Text className="mt-[18px] text-[42px] font-black leading-[46px] text-hero-text">
             Encuentra crews reales cerca de ti.
           </Text>
@@ -137,21 +138,21 @@ export default function SignInScreen() {
           </Text>
           <Text className="mt-2 text-[15px] leading-[22px] text-muted-text">
             {isSignUp
-              ? 'Crea tu cuenta y luego completa ciudad, ritmo y disponibilidad.'
+              ? 'Reserva tu username y luego completa ciudad, ritmo y preferencias.'
               : 'Entra para ver recomendaciones, apuntarte a quedadas y editar tu perfil runner.'}
           </Text>
 
           <View className="mt-4 gap-3">
             {isSignUp ? (
               <View className="gap-1.5">
-                <Text className="text-[13px] font-black uppercase tracking-[0.7px] text-muted-text">Nombre</Text>
+                <Text className="text-[13px] font-black uppercase tracking-[0.7px] text-muted-text">Username</Text>
                 <TextInput
-                  autoCapitalize="words"
-                  onChangeText={setName}
-                  placeholder="Tu nombre"
+                  autoCapitalize="none"
+                  onChangeText={setUsername}
+                  placeholder="@runner_madrid"
                   placeholderTextColor={colors.mutedText}
                   style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                  value={name}
+                  value={username}
                 />
               </View>
             ) : null}

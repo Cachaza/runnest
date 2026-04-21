@@ -8,6 +8,41 @@
       "when": 1773361830461,
       "tag": "0000_supreme_lifeguard",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776785543190,
+      "tag": "0001_awesome_prism",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776788669437,
+      "tag": "0002_clean_obadiah_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776790368921,
+      "tag": "0003_noisy_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776791800491,
+      "tag": "0004_smiling_firebrand",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776792266722,
+      "tag": "0005_supreme_odin",
+      "breakpoints": true
     }
   ]
 }

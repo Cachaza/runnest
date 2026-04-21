@@ -1,5 +1,6 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { View, useColorScheme as useSystemColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { vars } from 'nativewind';
 
 import Colors from '@/constants/Colors';
@@ -67,6 +68,15 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const [hasManualChoice, setHasManualChoice] = useState(false);
 
   useEffect(() => {
+    AsyncStorage.getItem('theme-preference').then((saved) => {
+      if (saved === 'dark' || saved === 'light') {
+        setColorScheme(saved);
+        setHasManualChoice(true);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     if (!hasManualChoice) {
       setColorScheme(systemScheme);
     }
@@ -75,11 +85,16 @@ export function ThemePreferenceProvider({ children }: PropsWithChildren) {
   const setTheme = useCallback((theme: AppColorScheme) => {
     setHasManualChoice(true);
     setColorScheme(theme);
+    AsyncStorage.setItem('theme-preference', theme).catch(() => {});
   }, []);
 
   const toggleTheme = useCallback(() => {
     setHasManualChoice(true);
-    setColorScheme((current) => (current === 'dark' ? 'light' : 'dark'));
+    setColorScheme((current) => {
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      AsyncStorage.setItem('theme-preference', nextTheme).catch(() => {});
+      return nextTheme;
+    });
   }, []);
 
   const value = useMemo<ThemeContextValue>(

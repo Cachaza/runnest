@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import { AppProviders } from '@/components/AppProviders';
 import { useAppTheme } from '@/components/ThemeContext';
 import { authClient } from '@/lib/auth-client';
+import { trpc } from '@/lib/trpc';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -17,7 +18,7 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: '(tabs)',
+  initialRouteName: '(app)',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -48,6 +49,14 @@ function RootLayoutNav() {
   const { colorScheme, colors } = useAppTheme();
   const { data: session, isPending } = authClient.useSession();
   const isAuthenticated = Boolean(session);
+  const profileQuery = trpc.profile.me.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const isCheckingProfile = isAuthenticated && profileQuery.isPending;
+  const hasCompletedOnboarding = Boolean(profileQuery.data?.profile);
+  const canUseApp = isAuthenticated && hasCompletedOnboarding;
+  const needsOnboarding = isAuthenticated && !isCheckingProfile && !hasCompletedOnboarding;
   const theme =
     colorScheme === 'dark'
       ? {
@@ -76,12 +85,12 @@ function RootLayoutNav() {
         };
 
   useEffect(() => {
-    if (!isPending) {
+    if (!isPending && !isCheckingProfile) {
       SplashScreen.hideAsync();
     }
-  }, [isPending]);
+  }, [isCheckingProfile, isPending]);
 
-  if (isPending) {
+  if (isPending || isCheckingProfile) {
     return null;
   }
 
@@ -89,12 +98,12 @@ function RootLayoutNav() {
     <ThemeProvider value={theme}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <Stack>
-        <Stack.Protected guard={isAuthenticated}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="modal"
-            options={{ presentation: 'modal', title: 'Crear quedada' }}
-          />
+        <Stack.Protected guard={canUseApp}>
+          <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        </Stack.Protected>
+
+        <Stack.Protected guard={needsOnboarding}>
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         </Stack.Protected>
 
         <Stack.Protected guard={!isAuthenticated}>

@@ -1,22 +1,19 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { Text, View } from '@/components/Themed';
+import { useAppTheme } from '@/components/ThemeContext';
 
 export default function NotFoundScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme];
+  const { colors } = useAppTheme();
 
   return (
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.text }]}>This route is outside the current launch scope.</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Esta ruta no existe o está fuera del alcance.</Text>
 
         <Link href="/" style={styles.link}>
-          <Text style={[styles.linkText, { color: colors.tint }]}>Go back to the app shell</Text>
+          <Text style={[styles.linkText, { color: colors.tint }]}>Volver al inicio</Text>
         </Link>
       </View>
     </>
@@ -40,7 +37,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   linkText: {
-    fontSize: 14,
-    color: '#2e78b7',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

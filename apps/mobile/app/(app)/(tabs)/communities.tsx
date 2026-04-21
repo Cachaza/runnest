@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
@@ -16,6 +17,14 @@ function formatMeetupLabel(startsAt: string | Date) {
   }).format(date);
 }
 
+function formatViewerDistance(distanceKm: number | null | undefined) {
+  if (distanceKm === null || distanceKm === undefined) {
+    return null;
+  }
+
+  return `~${Math.round(distanceKm)} km de ti`;
+}
+
 export default function CommunitiesScreen() {
   const { colors, isDark } = useAppTheme();
   const utils = trpc.useUtils();
@@ -26,6 +35,10 @@ export default function CommunitiesScreen() {
     retry: false,
   });
   const meetupsQuery = trpc.meetups.upcoming.useQuery();
+  const publicRunnersQuery = trpc.profile.publicRunners.useQuery(undefined, {
+    enabled: !!session,
+    retry: false,
+  });
   const rsvpMutation = trpc.meetups.rsvp.useMutation({
     onSuccess: async () => {
       await utils.meetups.upcoming.invalidate();
@@ -93,24 +106,53 @@ export default function CommunitiesScreen() {
         const recommendationReason = (crew as { recommendationReason?: string }).recommendationReason;
 
         return (
-          <AppCard key={crew.id}>
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1">
-                <Text className="text-[22px] font-black text-text">{crew.name}</Text>
-                <Text className="mt-[3px] text-sm font-bold text-muted-text">{crew.city}</Text>
-              </View>
-              {recommendationReason ? (
-                <Chip tone="warm">{recommendationReason}</Chip>
-              ) : null}
-            </View>
-            <Text className="text-[15px] leading-[23px] text-muted-text">{crew.description}</Text>
-            <View className="mt-0.5 flex-row flex-wrap gap-2.5">
-              <Chip tone="cool">{crew.pace}</Chip>
-              <Chip tone="neutral">{crew.vibe}</Chip>
-            </View>
-          </AppCard>
+          <Link key={crew.id} href={`/crew/${crew.id}` as any} asChild>
+            <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+              <AppCard>
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="flex-1">
+                    <Text className="text-[22px] font-black text-text">{crew.name}</Text>
+                    <Text className="mt-[3px] text-sm font-bold text-muted-text">{crew.city}</Text>
+                  </View>
+                  {recommendationReason ? (
+                    <Chip tone="warm">{recommendationReason}</Chip>
+                  ) : null}
+                </View>
+                <Text className="text-[15px] leading-[23px] text-muted-text">{crew.description}</Text>
+                <View className="mt-0.5 flex-row flex-wrap gap-2.5">
+                  <Chip tone="cool">{crew.pace}</Chip>
+                  <Chip tone="neutral">{crew.vibe}</Chip>
+                </View>
+                <Text className="text-sm font-black text-tint">Ver detalle</Text>
+              </AppCard>
+            </Pressable>
+          </Link>
         );
       })}
+
+      <SectionHeader loading={publicRunnersQuery.isPending} title="Runners activos" />
+
+      {publicRunnersQuery.data?.map((runner) => (
+        <Link key={runner.id} href={`/runner/${runner.username}` as any} asChild>
+          <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+            <AppCard>
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-[22px] font-black text-text">@{runner.username}</Text>
+                  <Text className="mt-[3px] text-sm font-bold text-muted-text">
+                    {[runner.area, runner.city].filter(Boolean).join(' · ') || 'Ubicación privada'}
+                  </Text>
+                </View>
+                {runner.level ? <Chip tone="warm">{runner.level}</Chip> : null}
+              </View>
+              <View className="mt-0.5 flex-row flex-wrap gap-2.5">
+                <Chip tone="cool">{runner.pace}</Chip>
+                {runner.goals ? <Chip tone="neutral">{runner.goals.split(',')[0].trim()}</Chip> : null}
+              </View>
+            </AppCard>
+          </Pressable>
+        </Link>
+      ))}
 
       <SectionHeader loading={meetupsQuery.isPending} title="Próximas quedadas" />
 
@@ -132,57 +174,64 @@ export default function CommunitiesScreen() {
         </AppCard>
       ) : null}
 
-      {meetupsQuery.data?.map((meetup) => (
-        <View
-          key={meetup.id}
-          style={[
-            styles.timelineItem,
-            {
-              backgroundColor: colors.hero,
-              borderColor: colors.border,
-              shadowColor: isDark ? '#000' : '#5C4833',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: isDark ? 0.3 : 0.08,
-              shadowRadius: 8,
-              elevation: 4,
-            },
-          ]}>
-          <View style={[styles.datePill, { backgroundColor: colors.heroAccent }]}>
-            <Text style={styles.datePillText}>{formatMeetupLabel(meetup.startsAt)}</Text>
-          </View>
-          <View style={styles.timelineBody}>
-            <Text style={[styles.timelineTitle, { color: colors.heroText }]}>{meetup.title}</Text>
-            <Text style={[styles.timelineNote, { color: colors.heroTextMuted }]}>
-              {meetup.crewName} · {meetup.distanceKm} km · {meetup.location}
-            </Text>
-            <View style={styles.timelineFooter}>
-              <Text style={[styles.rsvpMeta, { color: colors.heroTextMuted }]}>
-                {meetup.rsvpCount} apuntados
+      {meetupsQuery.data?.map((meetup) => {
+        const viewerDistance = formatViewerDistance(meetup.distanceFromViewerKm);
+
+        return (
+          <View
+            key={meetup.id}
+            style={[
+              styles.timelineItem,
+              {
+                backgroundColor: colors.hero,
+                borderColor: colors.border,
+                shadowColor: isDark ? '#000' : '#5C4833',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDark ? 0.3 : 0.08,
+                shadowRadius: 8,
+                elevation: 4,
+              },
+            ]}>
+            <View style={[styles.datePill, { backgroundColor: colors.heroAccent }]}>
+              <Text style={styles.datePillText}>{formatMeetupLabel(meetup.startsAt)}</Text>
+            </View>
+            <View style={styles.timelineBody}>
+              <Text style={[styles.timelineTitle, { color: colors.heroText }]}>{meetup.title}</Text>
+              <Text style={[styles.timelineNote, { color: colors.heroTextMuted }]}>
+                {meetup.crewName} · {meetup.distanceKm} km · {meetup.location}
               </Text>
-              <Pressable
-                disabled={isMutatingRsvp}
-                onPress={() => handleMeetupAction(meetup.id, meetup.viewerIsGoing)}
-                style={({ pressed }) => [
-                  styles.rsvpButton,
-                  {
-                    backgroundColor: meetup.viewerIsGoing
-                      ? isDark ? 'rgba(255,243,228,0.12)' : 'rgba(255,248,236,0.16)'
-                      : colors.heroAccent,
-                    opacity: pressed ? 0.7 : isMutatingRsvp ? 0.7 : 1,
-                  },
-                ]}>
-                <Text
-                  style={[
-                    styles.rsvpButtonText,
-                    { color: meetup.viewerIsGoing ? colors.heroText : '#1A1410' },
-                  ]}>
-                  {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
+              {viewerDistance ? (
+                <Text style={[styles.timelineNote, { color: colors.heroTextMuted }]}>{viewerDistance}</Text>
+              ) : null}
+              <View style={styles.timelineFooter}>
+                <Text style={[styles.rsvpMeta, { color: colors.heroTextMuted }]}>
+                  {meetup.rsvpCount} apuntados
                 </Text>
-              </Pressable>
+                <Pressable
+                  disabled={isMutatingRsvp}
+                  onPress={() => handleMeetupAction(meetup.id, meetup.viewerIsGoing)}
+                  style={({ pressed }) => [
+                    styles.rsvpButton,
+                    {
+                      backgroundColor: meetup.viewerIsGoing
+                        ? isDark ? 'rgba(255,243,228,0.12)' : 'rgba(255,248,236,0.16)'
+                        : colors.heroAccent,
+                      opacity: pressed ? 0.7 : isMutatingRsvp ? 0.7 : 1,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.rsvpButtonText,
+                      { color: meetup.viewerIsGoing ? colors.heroText : '#1A1410' },
+                    ]}>
+                    {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </ScreenScroll>
   );
 }

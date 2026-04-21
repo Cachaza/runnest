@@ -1,12 +1,13 @@
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { Link, Tabs } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useAppHeaderOptions } from '@/components/useAppHeaderOptions';
 
 export default function TabLayout() {
   const { colors, isDark } = useAppTheme();
+  const headerOptions = useAppHeaderOptions();
 
   return (
     <Tabs
@@ -39,25 +40,15 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingVertical: 4,
         },
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-        headerStyle: {
-          backgroundColor: colors.background,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        headerRight: () => <HeaderThemeToggle />,
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
+        ...headerOptions,
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Hoy',
+          tabBarIcon: ({ color }) => <FontAwesome6 name="calendar-day" size={20} color={color} />,
           headerRight: () => (
             <View style={styles.headerActions}>
-              <ThemeToggle />
               <Link href="/modal" asChild>
                 <Pressable>
                   {({ pressed }) => (
@@ -82,23 +73,17 @@ export default function TabLayout() {
         name="communities"
         options={{
           title: 'Crews',
+          tabBarIcon: ({ color }) => <FontAwesome6 name="users-line" size={20} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
+          tabBarIcon: ({ color }) => <FontAwesome6 name="circle-user" size={20} color={color} />,
         }}
       />
     </Tabs>
-  );
-}
-
-function HeaderThemeToggle() {
-  return (
-    <View style={styles.headerThemeToggle}>
-      <ThemeToggle />
-    </View>
   );
 }
 
@@ -107,9 +92,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 10,
-    marginRight: 15,
-  },
-  headerThemeToggle: {
     marginRight: 15,
   },
   newMeetupButton: {

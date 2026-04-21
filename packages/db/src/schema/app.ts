@@ -1,4 +1,21 @@
-import { index, integer, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  doublePrecision,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
+
+export type AvailabilityDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
+export type AvailabilityPeriod = 'morning' | 'midday' | 'afternoon' | 'evening'
+export type AvailabilitySlot = {
+  day: AvailabilityDay
+  period: AvailabilityPeriod
+}
 
 export const profiles = pgTable(
   'profiles',
@@ -9,6 +26,21 @@ export const profiles = pgTable(
     pace: text('pace').notNull(),
     bio: text('bio'),
     availability: text('availability'),
+    availabilitySlots: jsonb('availability_slots').$type<AvailabilitySlot[]>().default([]).notNull(),
+    username: text('username').unique(),
+    level: text('level'),
+    distance: text('distance'),
+    goals: text('goals'),
+    area: text('area'),
+    citySlug: text('city_slug'),
+    cityProvince: text('city_province'),
+    cityLat: doublePrecision('city_lat'),
+    cityLng: doublePrecision('city_lng'),
+    notificationMeetups: boolean('notification_meetups').default(true).notNull(),
+    notificationReminders: boolean('notification_reminders').default(true).notNull(),
+    publicProfile: boolean('public_profile').default(true).notNull(),
+    showCity: boolean('show_city').default(true).notNull(),
+    showArea: boolean('show_area').default(true).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -23,6 +55,10 @@ export const crews = pgTable(
     id: integer().generatedAlwaysAsIdentity().primaryKey(),
     name: text('name').notNull(),
     city: text('city').notNull(),
+    citySlug: text('city_slug'),
+    cityProvince: text('city_province'),
+    cityLat: doublePrecision('city_lat'),
+    cityLng: doublePrecision('city_lng'),
     pace: text('pace').notNull(),
     vibe: text('vibe').notNull(),
     description: text('description').notNull(),
@@ -30,6 +66,7 @@ export const crews = pgTable(
   },
   (table) => ({
     cityIndex: index('crews_city_idx').on(table.city),
+    citySlugIndex: index('crews_city_slug_idx').on(table.citySlug),
     nameIndex: uniqueIndex('crews_name_idx').on(table.name),
   }),
 )
@@ -42,6 +79,8 @@ export const meetups = pgTable(
     createdByUserId: text('created_by_user_id'),
     title: text('title').notNull(),
     location: text('location').notNull(),
+    locationLat: doublePrecision('location_lat'),
+    locationLng: doublePrecision('location_lng'),
     distanceKm: integer('distance_km').notNull(),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

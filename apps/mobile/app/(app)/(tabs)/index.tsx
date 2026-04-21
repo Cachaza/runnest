@@ -17,6 +17,14 @@ function formatMeetupLabel(startsAt: string | Date) {
   }).format(date);
 }
 
+function formatViewerDistance(distanceKm: number | null | undefined) {
+  if (distanceKm === null || distanceKm === undefined) {
+    return null;
+  }
+
+  return `~${Math.round(distanceKm)} km de ti`;
+}
+
 export default function TodayScreen() {
   const { colors, isDark } = useAppTheme();
   const { data: session } = authClient.useSession();
@@ -31,7 +39,8 @@ export default function TodayScreen() {
   });
   const profile = profileQuery.data?.profile;
   const nextMeetup = meetupsQuery.data?.[0];
-  const recommendedCrew = recommendedQuery.data?.[0];
+  const recommendedCrews = recommendedQuery.data?.slice(0, 3) ?? [];
+  const nextMeetupDistance = formatViewerDistance(nextMeetup?.distanceFromViewerKm);
 
   return (
     <ScreenScroll>
@@ -96,6 +105,9 @@ export default function TodayScreen() {
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
               {nextMeetup.distanceKm} km · {nextMeetup.location} · {nextMeetup.rsvpCount} apuntados
             </Text>
+            {nextMeetupDistance ? (
+              <Text className="text-[15px] leading-[23px] text-hero-text-muted">{nextMeetupDistance}</Text>
+            ) : null}
           </>
         ) : (
           <>
@@ -116,18 +128,28 @@ export default function TodayScreen() {
 
       <AppCard>
         <View className="flex-row items-center justify-between">
-          <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Crew recomendada</Text>
+          <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Crews recomendadas</Text>
           {recommendedQuery.isPending ? <ActivityIndicator color={colors.tint} /> : null}
         </View>
-        {recommendedCrew ? (
+        {recommendedCrews.length > 0 ? (
           <>
-            <Text className="text-2xl font-black leading-7 text-text">{recommendedCrew.name}</Text>
-            <Text className="text-[15px] leading-[23px] text-muted-text">
-              {recommendedCrew.city} · {recommendedCrew.pace} · {recommendedCrew.vibe}
-            </Text>
-            <View className="self-start">
-              <Chip tone="warm">Match: {recommendedCrew.recommendationReason}</Chip>
-            </View>
+            {recommendedCrews.map((crew) => (
+              <Link key={crew.id} href={`/crew/${crew.id}` as any} asChild>
+                <Pressable
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                  className="rounded-[18px] bg-chip px-4 py-3">
+                  <View className="gap-1.5">
+                    <View className="flex-row items-start justify-between gap-2">
+                      <Text className="flex-1 text-[18px] font-black leading-6 text-text">{crew.name}</Text>
+                      <Chip tone="warm">Match</Chip>
+                    </View>
+                    <Text className="text-[14px] font-bold leading-5 text-muted-text">
+                      {crew.city} · {crew.pace} · {crew.recommendationReason}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Link>
+            ))}
           </>
         ) : (
           <>
