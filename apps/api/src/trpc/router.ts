@@ -228,6 +228,49 @@ function scoreLocationMatch(
   }
 }
 
+function crewLocationTier(
+  profile: {
+    city: string
+    cityLat: number | null
+    cityLng: number | null
+    citySlug: string | null
+  },
+  crew: {
+    city: string
+    cityLat: number | null
+    cityLng: number | null
+    citySlug: string | null
+  },
+) {
+  if (profile.citySlug && crew.citySlug && profile.citySlug === crew.citySlug) {
+    return 'same_city' as const
+  }
+
+  if (normalizeText(crew.city) === normalizeText(profile.city)) {
+    return 'same_city' as const
+  }
+
+  if (
+    profile.cityLat !== null &&
+    profile.cityLng !== null &&
+    crew.cityLat !== null &&
+    crew.cityLng !== null
+  ) {
+    const distanceKm = haversineDistanceKm(
+      profile.cityLat,
+      profile.cityLng,
+      crew.cityLat,
+      crew.cityLng,
+    )
+
+    if (distanceKm <= 80) {
+      return 'nearby' as const
+    }
+  }
+
+  return 'other' as const
+}
+
 async function geocodeMeetupLocation(input: {
   city: string
   location: string
@@ -563,7 +606,7 @@ export const appRouter = createTRPCRouter({
         }))
       }
 
-      return crewRows
+      const scoredCrews = crewRows
         .map((crew) => {
           const meetupRowsForCrew = crewMeetups.filter((meetup) => meetup.crewId === crew.id)
           const recommendation = scoreCrewForProfile(
@@ -592,6 +635,20 @@ export const appRouter = createTRPCRouter({
               vibe: crew.vibe,
             },
           )
+          const locationTier = crewLocationTier(
+            {
+              city: profile.city,
+              cityLat: profile.cityLat,
+              cityLng: profile.cityLng,
+              citySlug: profile.citySlug,
+            },
+            {
+              city: crew.city,
+              cityLat: crew.cityLat,
+              cityLng: crew.cityLng,
+              citySlug: crew.citySlug,
+            },
+          )
 
           return {
             id: crew.id,
@@ -600,11 +657,31 @@ export const appRouter = createTRPCRouter({
             pace: crew.pace,
             vibe: crew.vibe,
             description: crew.description,
+            locationTier,
             recommendationReason: recommendation.reason,
             recommendationScore: recommendation.score,
           }
         })
-        .sort((left, right) => right.recommendationScore - left.recommendationScore)
+      const hasSameCityCrews = scoredCrews.some((crew) => crew.locationTier === 'same_city')
+      const hasNearbyCrews = scoredCrews.some((crew) => crew.locationTier === 'nearby')
+      const locationTierPriority = hasSameCityCrews
+        ? { same_city: 0, nearby: 1, other: 2 }
+        : hasNearbyCrews
+          ? { nearby: 0, same_city: 0, other: 1 }
+          : { same_city: 0, nearby: 0, other: 0 }
+
+      return scoredCrews
+        .sort((left, right) => {
+          const tierDifference =
+            locationTierPriority[left.locationTier] - locationTierPriority[right.locationTier]
+
+          if (tierDifference !== 0) {
+            return tierDifference
+          }
+
+          return right.recommendationScore - left.recommendationScore
+        })
+        .map(({ locationTier: _locationTier, ...crew }) => crew)
     }),
   }),
   meetups: createTRPCRouter({
