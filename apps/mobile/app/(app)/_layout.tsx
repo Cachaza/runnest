@@ -29,6 +29,10 @@ export default function AppLayout() {
         options={{ presentation: 'modal', title: 'Crear comunidad' }}
       />
       <Stack.Screen
+        name="community-access"
+        options={{ presentation: 'modal', title: 'Entrar con código' }}
+      />
+      <Stack.Screen
         name="settings"
         options={{ presentation: 'modal', title: 'Ajustes' }}
       />

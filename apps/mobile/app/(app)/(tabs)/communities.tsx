@@ -32,6 +32,10 @@ export default function CommunitiesScreen() {
   const utils = trpc.useUtils();
   const { data: session } = authClient.useSession();
   const communitiesQuery = trpc.communities.listPublic.useQuery();
+  const myInvitesQuery = trpc.communities.myInvites.useQuery(undefined, {
+    enabled: !!session,
+    retry: false,
+  });
   const myMembershipsQuery = trpc.communities.myMemberships.useQuery(undefined, {
     enabled: !!session,
     retry: false,
@@ -61,15 +65,42 @@ export default function CommunitiesScreen() {
       Alert.alert('No se pudo actualizar RSVP', error.message);
     },
   });
+  const acceptInviteMutation = trpc.communities.acceptInvite.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.communities.myInvites.invalidate(),
+        utils.communities.myMemberships.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      Alert.alert('No se pudo aceptar la invitación', error.message);
+    },
+  });
+  const rejectInviteMutation = trpc.communities.rejectInvite.useMutation({
+    onSuccess: async () => {
+      await utils.communities.myInvites.invalidate();
+    },
+    onError: (error) => {
+      Alert.alert('No se pudo rechazar la invitación', error.message);
+    },
+  });
   const recommendedCommunities = recommendedQuery.data ?? [];
   const communities = recommendedCommunities.length > 0 ? recommendedCommunities : (communitiesQuery.data ?? []);
   const isLoadingCommunities = communitiesQuery.isPending || recommendedQuery.isPending;
   const isMutatingRsvp = rsvpMutation.isPending || unrsvpMutation.isPending;
+  const isMutatingInvite = acceptInviteMutation.isPending || rejectInviteMutation.isPending;
   const { onRefresh, refreshing } = usePullToRefresh(async () => {
     await Promise.all([
       communitiesQuery.refetch(),
       meetupsQuery.refetch(),
-      ...(session ? [myMembershipsQuery.refetch(), recommendedQuery.refetch(), publicRunnersQuery.refetch()] : []),
+      ...(session
+        ? [
+            myInvitesQuery.refetch(),
+            myMembershipsQuery.refetch(),
+            recommendedQuery.refetch(),
+            publicRunnersQuery.refetch(),
+          ]
+        : []),
     ]);
   });
 
@@ -84,6 +115,15 @@ export default function CommunitiesScreen() {
     }
 
     await rsvpMutation.mutateAsync({ meetupId });
+  }
+
+  async function handleInviteAction(inviteId: string, action: 'accept' | 'reject') {
+    if (action === 'accept') {
+      await acceptInviteMutation.mutateAsync({ inviteId });
+      return;
+    }
+
+    await rejectInviteMutation.mutateAsync({ inviteId });
   }
 
   return (
@@ -106,6 +146,50 @@ export default function CommunitiesScreen() {
 
       {session ? (
         <>
+          <SectionHeader loading={myInvitesQuery.isPending} title="Invitaciones para ti" />
+
+          {!myInvitesQuery.isPending && (myInvitesQuery.data?.length ?? 0) === 0 ? (
+            <AppCard>
+              <Text className="text-[22px] font-black text-text">Sin invitaciones pendientes.</Text>
+              <Text className="text-[15px] leading-[23px] text-muted-text">
+                Cuando alguien te invite a una comunidad privada o managed, aparecerá aquí.
+              </Text>
+            </AppCard>
+          ) : null}
+
+          {myInvitesQuery.data?.map((invite) => (
+            <AppCard key={invite.id}>
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-[22px] font-black text-text">{invite.communityName}</Text>
+                  <Text className="mt-[3px] text-sm font-bold text-muted-text">
+                    {labelForCommunityKind(invite.communityKind)} · {invite.invitedByName}
+                  </Text>
+                </View>
+                <Chip tone="warm">{invite.role}</Chip>
+              </View>
+              <Text className="text-[15px] leading-[23px] text-muted-text">
+                Expira el {new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(invite.expiresAt))}
+              </Text>
+              <View className="mt-3 flex-row gap-2.5">
+                <Pressable
+                  disabled={isMutatingInvite}
+                  onPress={() => handleInviteAction(invite.id, 'accept')}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : isMutatingInvite ? 0.7 : 1 })}
+                  className="flex-1 items-center rounded-[18px] bg-tint py-[15px]">
+                  <Text className="text-[15px] font-black text-[#FFF8EC]">Aceptar</Text>
+                </Pressable>
+                <Pressable
+                  disabled={isMutatingInvite}
+                  onPress={() => handleInviteAction(invite.id, 'reject')}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : isMutatingInvite ? 0.7 : 1 })}
+                  className="flex-1 items-center rounded-[18px] bg-chip py-[15px]">
+                  <Text className="text-[15px] font-black text-text">Rechazar</Text>
+                </Pressable>
+              </View>
+            </AppCard>
+          ))}
+
           <SectionHeader
             loading={myMembershipsQuery.isPending}
             title="Tus espacios"

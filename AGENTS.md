@@ -14,4 +14,5 @@
   - authenticated users with profile go to `(app)`
 - Do not reintroduce auth forms inside tab screens or other authenticated routes.
 - When changing navigation, keep modal/detail routes inside `(app)/_layout.tsx` and keep tabs inside `(app)/(tabs)/_layout.tsx`.
-- For the current org-backed community model, product rules, and UX direction, use `docs/community-vision.md` as the canonical reference.
+- For the current org-backed community model, product rules, and UX direction, use `docs/community-vision.md` and `docs/mobile-membership-and-invites.md` as the canonical references.
+- If future repo work introduces a public landing site or an internal admin app, use `docs/monorepo-future-structure.md` as the reference for app boundaries and naming.

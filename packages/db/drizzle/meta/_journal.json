@@ -8,6 +8,20 @@
       "when": 1776800104872,
       "tag": "0000_chilly_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776807032133,
+      "tag": "0001_last_xavin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776808392128,
+      "tag": "0002_clammy_master_mold",
+      "breakpoints": true
     }
   ]
 }

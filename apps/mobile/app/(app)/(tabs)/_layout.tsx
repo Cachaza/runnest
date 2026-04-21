@@ -76,6 +76,22 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <FontAwesome6 name="users-line" size={20} color={color} />,
           headerRight: () => (
             <View style={styles.headerActions}>
+              <Link href="/community-access" asChild>
+                <Pressable>
+                  {({ pressed }) => (
+                    <View
+                      style={[
+                        styles.newMeetupButton,
+                        {
+                          backgroundColor: colors.chip,
+                          opacity: pressed ? 0.8 : 1,
+                        },
+                      ]}>
+                      <Text style={[styles.newMeetupText, { color: colors.text }]}>Código</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </Link>
               <Link href="/community-new" asChild>
                 <Pressable>
                   {({ pressed }) => (

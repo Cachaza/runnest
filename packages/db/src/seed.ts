@@ -11,8 +11,11 @@ import type {
   MeetupVisibility,
 } from './schema/app.js'
 import {
+  communityAccessLinkClaims,
+  communityAccessLinks,
   communities,
   communityBlocks,
+  communityUserInvites,
   invitation,
   meetups,
   meetupRsvps,
@@ -98,6 +101,36 @@ type SeedInvitation = {
   organizationId: string
   role: string
   expiresInDays: number
+}
+
+type SeedUserInvite = {
+  id: string
+  communityId: string
+  invitedUserId: string
+  invitedByUserId: string
+  role: 'admin' | 'moderator' | 'host' | 'member'
+  expiresInDays: number
+}
+
+type SeedAccessLink = {
+  id: string
+  communityId: string
+  createdByUserId: string
+  code: string
+  defaultRole: 'admin' | 'moderator' | 'host' | 'member'
+  sourceLabel?: string
+  requiresApproval?: boolean
+  maxUses?: number
+  expiresInDays: number
+}
+
+type SeedAccessLinkClaim = {
+  id: string
+  accessLinkId: string
+  communityId: string
+  userId: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  reviewedByUserId?: string
 }
 
 function requireMunicipality(slug: string) {
@@ -606,12 +639,69 @@ const seedInvitations: SeedInvitation[] = [
   },
 ]
 
+const seedUserInvites: SeedUserInvite[] = [
+  {
+    id: 'user-invite-bilbao-nil',
+    communityId: 'org-bilbao-athletics',
+    invitedUserId: 'user-nil-barceloneta',
+    invitedByUserId: 'user-jone-bilbao',
+    role: 'member',
+    expiresInDays: 7,
+  },
+  {
+    id: 'user-invite-marina-ruben',
+    communityId: 'org-marina-circle',
+    invitedUserId: 'user-ruben-malvarrosa',
+    invitedByUserId: 'user-marina-creator',
+    role: 'member',
+    expiresInDays: 7,
+  },
+]
+
+const seedAccessLinks: SeedAccessLink[] = [
+  {
+    id: 'access-link-alejandro-bio',
+    communityId: 'org-alejandro-lab',
+    createdByUserId: 'user-alejandro-coach',
+    code: 'ALEJANDRO-LAB',
+    defaultRole: 'member',
+    sourceLabel: 'instagram-bio',
+    requiresApproval: false,
+    maxUses: 250,
+    expiresInDays: 30,
+  },
+  {
+    id: 'access-link-marina-story',
+    communityId: 'org-marina-circle',
+    createdByUserId: 'user-marina-creator',
+    code: 'MARINA-CIRCLE',
+    defaultRole: 'member',
+    sourceLabel: 'story-drop',
+    requiresApproval: true,
+    maxUses: 100,
+    expiresInDays: 14,
+  },
+]
+
+const seedAccessLinkClaims: SeedAccessLinkClaim[] = [
+  {
+    id: 'access-claim-marina-ruben',
+    accessLinkId: 'access-link-marina-story',
+    communityId: 'org-marina-circle',
+    userId: 'user-ruben-malvarrosa',
+    status: 'pending',
+  },
+]
+
 async function seed() {
   const now = new Date()
 
   await db.transaction(async (tx) => {
     await tx.delete(meetupRsvps)
     await tx.delete(communityBlocks)
+    await tx.delete(communityAccessLinkClaims)
+    await tx.delete(communityAccessLinks)
+    await tx.delete(communityUserInvites)
     await tx.delete(meetups)
     await tx.delete(invitation)
     await tx.delete(member)
@@ -728,6 +818,51 @@ async function seed() {
         organizationId: entry.organizationId,
         role: entry.role,
         status: 'pending',
+      })),
+    )
+
+    await tx.insert(communityUserInvites).values(
+      seedUserInvites.map((entry) => ({
+        communityId: entry.communityId,
+        createdAt: now,
+        expiresAt: dateFromOffset(entry.expiresInDays, 23, 59),
+        id: entry.id,
+        invitedByUserId: entry.invitedByUserId,
+        invitedUserId: entry.invitedUserId,
+        role: entry.role,
+        status: 'pending' as const,
+        updatedAt: now,
+      })),
+    )
+
+    await tx.insert(communityAccessLinks).values(
+      seedAccessLinks.map((entry) => ({
+        code: entry.code,
+        communityId: entry.communityId,
+        createdAt: now,
+        createdByUserId: entry.createdByUserId,
+        defaultRole: entry.defaultRole,
+        expiresAt: dateFromOffset(entry.expiresInDays, 23, 59),
+        id: entry.id,
+        isActive: true,
+        maxUses: entry.maxUses ?? null,
+        requiresApproval: entry.requiresApproval ?? false,
+        sourceLabel: entry.sourceLabel ?? null,
+        updatedAt: now,
+        usesCount: 0,
+      })),
+    )
+
+    await tx.insert(communityAccessLinkClaims).values(
+      seedAccessLinkClaims.map((entry) => ({
+        accessLinkId: entry.accessLinkId,
+        communityId: entry.communityId,
+        id: entry.id,
+        requestedAt: now,
+        reviewedAt: entry.reviewedByUserId ? now : null,
+        reviewedByUserId: entry.reviewedByUserId ?? null,
+        status: entry.status,
+        userId: entry.userId,
       })),
     )
 

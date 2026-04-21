@@ -24,6 +24,13 @@ export type CommunityMode = 'collaborative' | 'managed'
 export type CommunityVisibility = 'public' | 'private'
 export type MeetupVisibility = 'public' | 'members'
 export type CommunityRole = 'owner' | 'admin' | 'moderator' | 'host' | 'member'
+export type CommunityUserInviteStatus =
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'cancelled'
+  | 'expired'
+export type CommunityAccessLinkClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 export const profiles = pgTable(
   'profiles',
@@ -156,5 +163,96 @@ export const communityBlocks = pgTable(
       table.userId,
     ),
     userIndex: index('community_blocks_user_idx').on(table.userId),
+  }),
+)
+
+export const communityUserInvites = pgTable(
+  'community_user_invites',
+  {
+    id: text('id').primaryKey(),
+    communityId: text('community_id')
+      .notNull()
+      .references(() => communities.organizationId, { onDelete: 'cascade' }),
+    invitedUserId: text('invited_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    invitedByUserId: text('invited_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role').$type<CommunityRole>().notNull(),
+    status: text('status').$type<CommunityUserInviteStatus>().notNull().default('pending'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    communityInviteeIndex: index('community_user_invites_community_invited_user_idx').on(
+      table.communityId,
+      table.invitedUserId,
+    ),
+    invitedUserStatusIndex: index('community_user_invites_invited_user_status_idx').on(
+      table.invitedUserId,
+      table.status,
+    ),
+    statusIndex: index('community_user_invites_status_idx').on(table.status),
+  }),
+)
+
+export const communityAccessLinks = pgTable(
+  'community_access_links',
+  {
+    id: text('id').primaryKey(),
+    communityId: text('community_id')
+      .notNull()
+      .references(() => communities.organizationId, { onDelete: 'cascade' }),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    defaultRole: text('default_role').$type<CommunityRole>().notNull(),
+    sourceLabel: text('source_label'),
+    requiresApproval: boolean('requires_approval').default(false).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    maxUses: integer('max_uses'),
+    usesCount: integer('uses_count').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    codeIndex: uniqueIndex('community_access_links_code_idx').on(table.code),
+    communityIndex: index('community_access_links_community_idx').on(table.communityId),
+    activeIndex: index('community_access_links_active_idx').on(table.communityId, table.isActive),
+  }),
+)
+
+export const communityAccessLinkClaims = pgTable(
+  'community_access_link_claims',
+  {
+    id: text('id').primaryKey(),
+    accessLinkId: text('access_link_id')
+      .notNull()
+      .references(() => communityAccessLinks.id, { onDelete: 'cascade' }),
+    communityId: text('community_id')
+      .notNull()
+      .references(() => communities.organizationId, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').$type<CommunityAccessLinkClaimStatus>().notNull(),
+    reviewedByUserId: text('reviewed_by_user_id').references(() => user.id, { onDelete: 'set null' }),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  },
+  (table) => ({
+    accessLinkUserIndex: uniqueIndex('community_access_link_claims_link_user_idx').on(
+      table.accessLinkId,
+      table.userId,
+    ),
+    communityStatusIndex: index('community_access_link_claims_community_status_idx').on(
+      table.communityId,
+      table.status,
+    ),
+    userStatusIndex: index('community_access_link_claims_user_status_idx').on(table.userId, table.status),
   }),
 )

@@ -5,13 +5,17 @@ import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
 import {
+  communityAccessLinkClaims,
+  communityAccessLinks,
   communities,
   communityBlocks,
+  communityUserInvites,
   meetups,
   meetupRsvps,
   member,
   organization,
   profiles,
+  user,
 } from '@apprunners/db'
 import { searchMunicipalities } from '@apprunners/geo'
 
@@ -41,6 +45,7 @@ const communityKindSchema = z.enum(['crew_local', 'creator_community', 'club', '
 const communityModeSchema = z.enum(['collaborative', 'managed'])
 const communityVisibilitySchema = z.enum(['public', 'private'])
 const meetupVisibilitySchema = z.enum(['public', 'members'])
+const communityRoleSchema = z.enum(['owner', 'admin', 'moderator', 'host', 'member'])
 
 function listFromCommaValue(value: string | null | undefined) {
   return value
@@ -183,6 +188,109 @@ function canViewerSeeMeetup(
   }
 
   return communityVisibility === 'public' && meetupVisibility === 'public'
+}
+
+function assignableRolesForActor(actorRole: CommunityRoleName | null) {
+  switch (actorRole) {
+    case 'owner':
+      return ['admin', 'moderator', 'host', 'member'] as const
+    case 'admin':
+      return ['moderator', 'host', 'member'] as const
+    default:
+      return [] as const
+  }
+}
+
+function canInviteMembers(actorRole: CommunityRoleName | null) {
+  return assignableRolesForActor(actorRole).length > 0
+}
+
+function canManageRole(actorRole: CommunityRoleName | null) {
+  return assignableRolesForActor(actorRole).length > 0
+}
+
+function canManageTargetMember(
+  actorRole: CommunityRoleName | null,
+  targetRole: CommunityRoleName | null,
+  isSelf: boolean,
+) {
+  if (isSelf) {
+    return false
+  }
+
+  if (actorRole === 'owner') {
+    return targetRole !== 'owner'
+  }
+
+  if (actorRole === 'admin') {
+    return targetRole === 'moderator' || targetRole === 'host' || targetRole === 'member'
+  }
+
+  return false
+}
+
+function canAssignRoleToTarget(
+  actorRole: CommunityRoleName | null,
+  targetRole: CommunityRoleName | null,
+  nextRole: CommunityRoleName,
+  isSelf: boolean,
+) {
+  const assignableRoles = assignableRolesForActor(actorRole)
+
+  return (
+    canManageTargetMember(actorRole, targetRole, isSelf) &&
+    assignableRoles.some((role) => role === nextRole)
+  )
+}
+
+function canBlockUsers(actorRole: CommunityRoleName | null) {
+  return actorRole === 'owner' || actorRole === 'admin' || actorRole === 'moderator'
+}
+
+function canManageAccessLinks(actorRole: CommunityRoleName | null) {
+  return actorRole === 'owner' || actorRole === 'admin'
+}
+
+function normalizeAccessLinkCode(value: string) {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+}
+
+function generateAccessLinkCode(communityName: string) {
+  const normalizedCommunity = normalizeAccessLinkCode(communityName).slice(0, 20) || 'COMMUNITY'
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase()
+
+  return `${normalizedCommunity}-${suffix}`
+}
+
+function canBlockTargetMember(
+  actorRole: CommunityRoleName | null,
+  targetRole: CommunityRoleName | null,
+  isSelf: boolean,
+) {
+  if (isSelf) {
+    return false
+  }
+
+  if (actorRole === 'owner') {
+    return targetRole !== 'owner'
+  }
+
+  if (actorRole === 'admin') {
+    return targetRole === 'moderator' || targetRole === 'host' || targetRole === 'member' || !targetRole
+  }
+
+  if (actorRole === 'moderator') {
+    return targetRole === 'member' || !targetRole
+  }
+
+  return false
 }
 
 function scoreGoalMatch(goals: string | null | undefined, communityText: string) {
@@ -770,6 +878,10 @@ export const appRouter = createTRPCRouter({
         const viewerMembership = ctx.user
           ? await getMembershipForUser(ctx, input.id, ctx.user.id)
           : null
+        const viewerPrimaryRole = getPrimaryRole(viewerMembership?.role)
+        const viewerCanInviteMembers = canInviteMembers(viewerPrimaryRole)
+        const viewerCanManageRoles = canManageRole(viewerPrimaryRole)
+        const viewerCanBlockUsers = canBlockUsers(viewerPrimaryRole)
 
         if (community.visibility === 'private' && !viewerMembership) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
@@ -824,11 +936,217 @@ export const appRouter = createTRPCRouter({
           .innerJoin(profiles, eq(member.userId, profiles.userId))
           .where(eq(member.organizationId, input.id))
 
+        const members =
+          viewerMembership || viewerCanInviteMembers || viewerCanManageRoles || viewerCanBlockUsers
+            ? await ctx.db
+                .select({
+                  id: member.id,
+                  joinedAt: member.createdAt,
+                  name: user.name,
+                  role: member.role,
+                  userId: member.userId,
+                  username: profiles.username,
+                })
+                .from(member)
+                .innerJoin(user, eq(member.userId, user.id))
+                .innerJoin(profiles, eq(member.userId, profiles.userId))
+                .where(eq(member.organizationId, input.id))
+                .orderBy(asc(member.createdAt))
+            : []
+
+        const pendingInvites = viewerCanInviteMembers
+          ? await ctx.db
+              .select({
+                createdAt: communityUserInvites.createdAt,
+                expiresAt: communityUserInvites.expiresAt,
+                id: communityUserInvites.id,
+                invitedByName: user.name,
+                invitedByUserId: communityUserInvites.invitedByUserId,
+                invitedUsername: profiles.username,
+                invitedUserId: communityUserInvites.invitedUserId,
+                role: communityUserInvites.role,
+                status: communityUserInvites.status,
+              })
+              .from(communityUserInvites)
+              .innerJoin(profiles, eq(communityUserInvites.invitedUserId, profiles.userId))
+              .innerJoin(user, eq(communityUserInvites.invitedByUserId, user.id))
+              .where(
+                and(
+                  eq(communityUserInvites.communityId, input.id),
+                  eq(communityUserInvites.status, 'pending'),
+                ),
+              )
+              .orderBy(desc(communityUserInvites.createdAt))
+          : []
+
+        const accessLinks = viewerCanInviteMembers
+          ? await ctx.db
+              .select({
+                code: communityAccessLinks.code,
+                createdAt: communityAccessLinks.createdAt,
+                defaultRole: communityAccessLinks.defaultRole,
+                expiresAt: communityAccessLinks.expiresAt,
+                id: communityAccessLinks.id,
+                isActive: communityAccessLinks.isActive,
+                maxUses: communityAccessLinks.maxUses,
+                requiresApproval: communityAccessLinks.requiresApproval,
+                sourceLabel: communityAccessLinks.sourceLabel,
+                usesCount: communityAccessLinks.usesCount,
+              })
+              .from(communityAccessLinks)
+              .where(eq(communityAccessLinks.communityId, input.id))
+              .orderBy(desc(communityAccessLinks.createdAt))
+          : []
+        const accessLinkIds = accessLinks.map((accessLink) => accessLink.id)
+        const accessLinkClaims =
+          viewerCanInviteMembers && accessLinkIds.length > 0
+            ? await ctx.db
+                .select({
+                  accessLinkId: communityAccessLinkClaims.accessLinkId,
+                  status: communityAccessLinkClaims.status,
+                })
+                .from(communityAccessLinkClaims)
+                .where(inArray(communityAccessLinkClaims.accessLinkId, accessLinkIds))
+            : []
+
+        const pendingAccessClaims = viewerCanInviteMembers
+          ? await ctx.db
+              .select({
+                accessLinkCode: communityAccessLinks.code,
+                accessLinkId: communityAccessLinkClaims.accessLinkId,
+                id: communityAccessLinkClaims.id,
+                requestedAt: communityAccessLinkClaims.requestedAt,
+                sourceLabel: communityAccessLinks.sourceLabel,
+                userId: communityAccessLinkClaims.userId,
+                username: profiles.username,
+                userName: user.name,
+              })
+              .from(communityAccessLinkClaims)
+              .innerJoin(
+                communityAccessLinks,
+                eq(communityAccessLinkClaims.accessLinkId, communityAccessLinks.id),
+              )
+              .innerJoin(user, eq(communityAccessLinkClaims.userId, user.id))
+              .innerJoin(profiles, eq(communityAccessLinkClaims.userId, profiles.userId))
+              .where(
+                and(
+                  eq(communityAccessLinkClaims.communityId, input.id),
+                  eq(communityAccessLinkClaims.status, 'pending'),
+                ),
+              )
+              .orderBy(desc(communityAccessLinkClaims.requestedAt))
+          : []
+
+        const blockedUsers = viewerCanBlockUsers
+          ? await ctx.db
+              .select({
+                blockedAt: communityBlocks.createdAt,
+                blockedByUserId: communityBlocks.blockedByUserId,
+                id: communityBlocks.id,
+                name: user.name,
+                reason: communityBlocks.reason,
+                userId: communityBlocks.userId,
+                username: profiles.username,
+              })
+              .from(communityBlocks)
+              .innerJoin(user, eq(communityBlocks.userId, user.id))
+              .innerJoin(profiles, eq(communityBlocks.userId, profiles.userId))
+              .where(eq(communityBlocks.communityId, input.id))
+              .orderBy(desc(communityBlocks.createdAt))
+          : []
+
         return {
           community: {
             ...community,
+            viewerCanBlockUsers,
+            viewerCanInviteMembers,
+            viewerCanManageRoles,
             viewerMembershipRole: viewerMembership?.role ?? null,
           },
+          blockedUsers: blockedUsers.map((blockedUser) => ({
+            ...blockedUser,
+            canUnblock: viewerCanBlockUsers,
+          })),
+          accessLinks: accessLinks.map((accessLink) => ({
+            ...accessLink,
+            approvedClaims: accessLinkClaims.filter(
+              (claim) =>
+                claim.accessLinkId === accessLink.id && claim.status === 'approved',
+            ).length,
+            canRevoke: viewerCanInviteMembers && accessLink.isActive,
+            pendingClaims: accessLinkClaims.filter(
+              (claim) =>
+                claim.accessLinkId === accessLink.id && claim.status === 'pending',
+            ).length,
+            rejectedClaims: accessLinkClaims.filter(
+              (claim) =>
+                claim.accessLinkId === accessLink.id && claim.status === 'rejected',
+            ).length,
+          })),
+          accessLinkSources: accessLinks
+            .reduce<
+              Array<{
+                sourceLabel: string
+                totalLinks: number
+                totalUses: number
+                pendingClaims: number
+                approvedClaims: number
+              }>
+            >((accumulator, accessLink) => {
+              const sourceLabel = accessLink.sourceLabel ?? 'unlabeled'
+              const existingSource = accumulator.find((item) => item.sourceLabel === sourceLabel)
+              const pendingClaims = accessLinkClaims.filter(
+                (claim) =>
+                  claim.accessLinkId === accessLink.id && claim.status === 'pending',
+              ).length
+              const approvedClaims = accessLinkClaims.filter(
+                (claim) =>
+                  claim.accessLinkId === accessLink.id && claim.status === 'approved',
+              ).length
+
+              if (existingSource) {
+                existingSource.totalLinks += 1
+                existingSource.totalUses += accessLink.usesCount
+                existingSource.pendingClaims += pendingClaims
+                existingSource.approvedClaims += approvedClaims
+              } else {
+                accumulator.push({
+                  approvedClaims,
+                  pendingClaims,
+                  sourceLabel,
+                  totalLinks: 1,
+                  totalUses: accessLink.usesCount,
+                })
+              }
+
+              return accumulator
+            }, [])
+            .sort((left, right) => right.totalUses - left.totalUses),
+          members: members.map((communityMember) => {
+            const targetPrimaryRole = getPrimaryRole(communityMember.role)
+            const isViewer = communityMember.userId === ctx.user?.id
+
+            return {
+              ...communityMember,
+              availableRoleTargets: assignableRolesForActor(viewerPrimaryRole).filter((role) =>
+                canAssignRoleToTarget(viewerPrimaryRole, targetPrimaryRole, role, isViewer),
+              ),
+              canBlock: canBlockTargetMember(viewerPrimaryRole, targetPrimaryRole, isViewer),
+              canRemove: canManageTargetMember(viewerPrimaryRole, targetPrimaryRole, isViewer),
+              isViewer,
+              primaryRole: targetPrimaryRole,
+            }
+          }),
+          pendingInvites: pendingInvites
+            .filter((invite) => invite.expiresAt > new Date())
+            .map((invite) => ({
+              ...invite,
+              canCancel: viewerCanInviteMembers,
+            })),
+          pendingAccessClaims: pendingAccessClaims.map((claim) => ({
+            ...claim,
+            canReview: viewerCanInviteMembers,
+          })),
           upcomingMeetups: visibleMeetups.map((meetup) => {
             const meetupRsvpRows = rsvpRows.filter((rsvp) => rsvp.meetupId === meetup.id)
 
@@ -1059,6 +1377,865 @@ export const appRouter = createTRPCRouter({
         await ctx.db
           .delete(member)
           .where(and(eq(member.organizationId, input.communityId), eq(member.userId, ctx.user.id)))
+
+        return { ok: true }
+      }),
+    myInvites: protectedProcedure.query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select({
+          communityId: communities.organizationId,
+          communityKind: communities.kind,
+          communityName: communities.name,
+          communityVisibility: communities.visibility,
+          createdAt: communityUserInvites.createdAt,
+          expiresAt: communityUserInvites.expiresAt,
+          id: communityUserInvites.id,
+          invitedByName: user.name,
+          role: communityUserInvites.role,
+        })
+        .from(communityUserInvites)
+        .innerJoin(communities, eq(communityUserInvites.communityId, communities.organizationId))
+        .innerJoin(user, eq(communityUserInvites.invitedByUserId, user.id))
+        .where(
+          and(
+            eq(communityUserInvites.invitedUserId, ctx.user.id),
+            eq(communityUserInvites.status, 'pending'),
+          ),
+        )
+        .orderBy(desc(communityUserInvites.createdAt))
+
+      const now = new Date()
+
+      return rows.filter((invite) => invite.expiresAt > now)
+    }),
+    createAccessLink: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          defaultRole: communityRoleSchema.exclude(['owner']),
+          expiresInDays: z.number().int().min(1).max(365).default(14),
+          maxUses: z.number().int().positive().max(100000).nullable().optional(),
+          requiresApproval: z.boolean().default(false),
+          sourceLabel: z.string().max(80).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canManageAccessLinks(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes crear access links en esta comunidad.',
+          })
+        }
+
+        if (!assignableRolesForActor(actorPrimaryRole).some((role) => role === input.defaultRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes crear un link con ese rol por defecto.',
+          })
+        }
+
+        const [community] = await ctx.db
+          .select({
+            name: communities.name,
+          })
+          .from(communities)
+          .where(eq(communities.organizationId, input.communityId))
+          .limit(1)
+
+        if (!community) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
+        }
+
+        let code = generateAccessLinkCode(community.name)
+
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const [existingCode] = await ctx.db
+            .select({ id: communityAccessLinks.id })
+            .from(communityAccessLinks)
+            .where(eq(communityAccessLinks.code, code))
+            .limit(1)
+
+          if (!existingCode) {
+            break
+          }
+
+          code = generateAccessLinkCode(community.name)
+        }
+
+        const [createdLink] = await ctx.db
+          .insert(communityAccessLinks)
+          .values({
+            code,
+            communityId: input.communityId,
+            createdByUserId: ctx.user.id,
+            defaultRole: input.defaultRole,
+            expiresAt: new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000),
+            id: randomUUID(),
+            isActive: true,
+            maxUses: input.maxUses ?? null,
+            requiresApproval: input.requiresApproval,
+            sourceLabel: input.sourceLabel?.trim() || null,
+            updatedAt: new Date(),
+            usesCount: 0,
+          })
+          .returning({
+            code: communityAccessLinks.code,
+            id: communityAccessLinks.id,
+          })
+
+        return createdLink
+      }),
+    revokeAccessLink: protectedProcedure
+      .input(
+        z.object({
+          accessLinkId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [accessLink] = await ctx.db
+          .select({
+            communityId: communityAccessLinks.communityId,
+            id: communityAccessLinks.id,
+          })
+          .from(communityAccessLinks)
+          .where(eq(communityAccessLinks.id, input.accessLinkId))
+          .limit(1)
+
+        if (!accessLink) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe ese access link.' })
+        }
+
+        const actorMembership = await getMembershipForUser(ctx, accessLink.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canManageAccessLinks(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes revocar access links en esta comunidad.',
+          })
+        }
+
+        await ctx.db
+          .update(communityAccessLinks)
+          .set({
+            isActive: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(communityAccessLinks.id, input.accessLinkId))
+
+        return { ok: true }
+      }),
+    redeemAccessLink: protectedProcedure
+      .input(
+        z.object({
+          code: z.string().min(3).max(80),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const normalizedCode = normalizeAccessLinkCode(input.code)
+        const [accessLink] = await ctx.db
+          .select({
+            code: communityAccessLinks.code,
+            communityId: communityAccessLinks.communityId,
+            communityName: communities.name,
+            createdByUserId: communityAccessLinks.createdByUserId,
+            defaultRole: communityAccessLinks.defaultRole,
+            expiresAt: communityAccessLinks.expiresAt,
+            id: communityAccessLinks.id,
+            isActive: communityAccessLinks.isActive,
+            maxUses: communityAccessLinks.maxUses,
+            requiresApproval: communityAccessLinks.requiresApproval,
+            usesCount: communityAccessLinks.usesCount,
+          })
+          .from(communityAccessLinks)
+          .innerJoin(communities, eq(communityAccessLinks.communityId, communities.organizationId))
+          .where(eq(communityAccessLinks.code, normalizedCode))
+          .limit(1)
+
+        if (!accessLink || !accessLink.isActive) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Ese código no está disponible.' })
+        }
+
+        if (accessLink.expiresAt <= new Date()) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Ese código ha caducado.' })
+        }
+
+        if (
+          accessLink.maxUses !== null &&
+          accessLink.maxUses !== undefined &&
+          accessLink.usesCount >= accessLink.maxUses
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Ese código ya alcanzó su límite de usos.',
+          })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, accessLink.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes acceder a esta comunidad.',
+          })
+        }
+
+        const existingMembership = await getMembershipForUser(ctx, accessLink.communityId, ctx.user.id)
+
+        if (existingMembership) {
+          return {
+            communityId: accessLink.communityId,
+            communityName: accessLink.communityName,
+            status: 'already_member' as const,
+          }
+        }
+
+        const [existingPendingClaim] = await ctx.db
+          .select({
+            id: communityAccessLinkClaims.id,
+          })
+          .from(communityAccessLinkClaims)
+          .where(
+            and(
+              eq(communityAccessLinkClaims.accessLinkId, accessLink.id),
+              eq(communityAccessLinkClaims.userId, ctx.user.id),
+              eq(communityAccessLinkClaims.status, 'pending'),
+            ),
+          )
+          .limit(1)
+
+        if (existingPendingClaim) {
+          return {
+            communityId: accessLink.communityId,
+            communityName: accessLink.communityName,
+            status: 'pending' as const,
+          }
+        }
+
+        if (accessLink.requiresApproval) {
+          await ctx.db.insert(communityAccessLinkClaims).values({
+            accessLinkId: accessLink.id,
+            communityId: accessLink.communityId,
+            id: randomUUID(),
+            requestedAt: new Date(),
+            status: 'pending',
+            userId: ctx.user.id,
+          })
+
+          return {
+            communityId: accessLink.communityId,
+            communityName: accessLink.communityName,
+            status: 'pending' as const,
+          }
+        }
+
+        await ctx.db.transaction(async (tx) => {
+          await tx.insert(member).values({
+            createdAt: new Date(),
+            id: randomUUID(),
+            organizationId: accessLink.communityId,
+            role: accessLink.defaultRole,
+            userId: ctx.user.id,
+          })
+
+          await tx.insert(communityAccessLinkClaims).values({
+            accessLinkId: accessLink.id,
+            communityId: accessLink.communityId,
+            id: randomUUID(),
+            requestedAt: new Date(),
+            reviewedAt: new Date(),
+            reviewedByUserId: accessLink.createdByUserId,
+            status: 'approved',
+            userId: ctx.user.id,
+          })
+
+          await tx
+            .update(communityAccessLinks)
+            .set({
+              updatedAt: new Date(),
+              usesCount: accessLink.usesCount + 1,
+            })
+            .where(eq(communityAccessLinks.id, accessLink.id))
+        })
+
+        return {
+          communityId: accessLink.communityId,
+          communityName: accessLink.communityName,
+          status: 'joined' as const,
+        }
+      }),
+    approveAccessClaim: protectedProcedure
+      .input(
+        z.object({
+          claimId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [claim] = await ctx.db
+          .select({
+            accessLinkId: communityAccessLinkClaims.accessLinkId,
+            communityId: communityAccessLinkClaims.communityId,
+            id: communityAccessLinkClaims.id,
+            status: communityAccessLinkClaims.status,
+            userId: communityAccessLinkClaims.userId,
+          })
+          .from(communityAccessLinkClaims)
+          .where(eq(communityAccessLinkClaims.id, input.claimId))
+          .limit(1)
+
+        if (!claim || claim.status !== 'pending') {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa solicitud.' })
+        }
+
+        const actorMembership = await getMembershipForUser(ctx, claim.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canManageAccessLinks(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes revisar solicitudes de access links aquí.',
+          })
+        }
+
+        const [accessLink] = await ctx.db
+          .select({
+            defaultRole: communityAccessLinks.defaultRole,
+            expiresAt: communityAccessLinks.expiresAt,
+            id: communityAccessLinks.id,
+            isActive: communityAccessLinks.isActive,
+            maxUses: communityAccessLinks.maxUses,
+            usesCount: communityAccessLinks.usesCount,
+          })
+          .from(communityAccessLinks)
+          .where(eq(communityAccessLinks.id, claim.accessLinkId))
+          .limit(1)
+
+        if (!accessLink || !accessLink.isActive || accessLink.expiresAt <= new Date()) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'El access link ya no está activo.',
+          })
+        }
+
+        if (
+          accessLink.maxUses !== null &&
+          accessLink.maxUses !== undefined &&
+          accessLink.usesCount >= accessLink.maxUses
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'El access link ya alcanzó su límite.',
+          })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, claim.communityId, claim.userId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Ese usuario está bloqueado en esta comunidad.',
+          })
+        }
+
+        const existingMembership = await getMembershipForUser(ctx, claim.communityId, claim.userId)
+
+        await ctx.db.transaction(async (tx) => {
+          if (!existingMembership) {
+            await tx.insert(member).values({
+              createdAt: new Date(),
+              id: randomUUID(),
+              organizationId: claim.communityId,
+              role: accessLink.defaultRole,
+              userId: claim.userId,
+            })
+          }
+
+          await tx
+            .update(communityAccessLinkClaims)
+            .set({
+              reviewedAt: new Date(),
+              reviewedByUserId: ctx.user.id,
+              status: 'approved',
+            })
+            .where(eq(communityAccessLinkClaims.id, input.claimId))
+
+          await tx
+            .update(communityAccessLinks)
+            .set({
+              updatedAt: new Date(),
+              usesCount: accessLink.usesCount + 1,
+            })
+            .where(eq(communityAccessLinks.id, accessLink.id))
+        })
+
+        return { ok: true }
+      }),
+    rejectAccessClaim: protectedProcedure
+      .input(
+        z.object({
+          claimId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [claim] = await ctx.db
+          .select({
+            communityId: communityAccessLinkClaims.communityId,
+            id: communityAccessLinkClaims.id,
+            status: communityAccessLinkClaims.status,
+          })
+          .from(communityAccessLinkClaims)
+          .where(eq(communityAccessLinkClaims.id, input.claimId))
+          .limit(1)
+
+        if (!claim || claim.status !== 'pending') {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa solicitud.' })
+        }
+
+        const actorMembership = await getMembershipForUser(ctx, claim.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canManageAccessLinks(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes revisar solicitudes de access links aquí.',
+          })
+        }
+
+        await ctx.db
+          .update(communityAccessLinkClaims)
+          .set({
+            reviewedAt: new Date(),
+            reviewedByUserId: ctx.user.id,
+            status: 'rejected',
+          })
+          .where(eq(communityAccessLinkClaims.id, input.claimId))
+
+        return { ok: true }
+      }),
+    inviteByUsername: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          role: z.enum(['admin', 'moderator', 'host', 'member']),
+          username: usernameSchema,
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canInviteMembers(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes invitar miembros en esta comunidad.',
+          })
+        }
+
+        if (!assignableRolesForActor(actorPrimaryRole).some((role) => role === input.role)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes invitar con ese rol.',
+          })
+        }
+
+        const [inviteeProfile] = await ctx.db
+          .select({
+            userId: profiles.userId,
+            username: profiles.username,
+          })
+          .from(profiles)
+          .where(eq(profiles.username, input.username))
+          .limit(1)
+
+        if (!inviteeProfile?.userId) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe ese username.' })
+        }
+
+        if (inviteeProfile.userId === ctx.user.id) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'No puedes invitarte a ti mismo.',
+          })
+        }
+
+        const existingMembership = await getMembershipForUser(ctx, input.communityId, inviteeProfile.userId)
+
+        if (existingMembership) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Ese usuario ya pertenece a la comunidad.',
+          })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, input.communityId, inviteeProfile.userId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Ese usuario está bloqueado en esta comunidad.',
+          })
+        }
+
+        const [existingInvite] = await ctx.db
+          .select({
+            id: communityUserInvites.id,
+            expiresAt: communityUserInvites.expiresAt,
+          })
+          .from(communityUserInvites)
+          .where(
+            and(
+              eq(communityUserInvites.communityId, input.communityId),
+              eq(communityUserInvites.invitedUserId, inviteeProfile.userId),
+              eq(communityUserInvites.status, 'pending'),
+            ),
+          )
+          .orderBy(desc(communityUserInvites.createdAt))
+          .limit(1)
+
+        if (existingInvite && existingInvite.expiresAt > new Date()) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Ese usuario ya tiene una invitación pendiente.',
+          })
+        }
+
+        await ctx.db.insert(communityUserInvites).values({
+          communityId: input.communityId,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+          id: randomUUID(),
+          invitedByUserId: ctx.user.id,
+          invitedUserId: inviteeProfile.userId,
+          role: input.role,
+          status: 'pending',
+          updatedAt: new Date(),
+        })
+
+        return { ok: true }
+      }),
+    acceptInvite: protectedProcedure
+      .input(
+        z.object({
+          inviteId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [invite] = await ctx.db
+          .select({
+            communityId: communityUserInvites.communityId,
+            expiresAt: communityUserInvites.expiresAt,
+            id: communityUserInvites.id,
+            role: communityUserInvites.role,
+            status: communityUserInvites.status,
+          })
+          .from(communityUserInvites)
+          .where(
+            and(
+              eq(communityUserInvites.id, input.inviteId),
+              eq(communityUserInvites.invitedUserId, ctx.user.id),
+            ),
+          )
+          .limit(1)
+
+        if (!invite || invite.status !== 'pending') {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa invitación.' })
+        }
+
+        if (invite.expiresAt <= new Date()) {
+          await ctx.db
+            .update(communityUserInvites)
+            .set({
+              status: 'expired',
+              updatedAt: new Date(),
+            })
+            .where(eq(communityUserInvites.id, input.inviteId))
+
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Esta invitación ha caducado.',
+          })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, invite.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes unirte a esta comunidad.',
+          })
+        }
+
+        const existingMembership = await getMembershipForUser(ctx, invite.communityId, ctx.user.id)
+
+        await ctx.db.transaction(async (tx) => {
+          if (!existingMembership) {
+            await tx.insert(member).values({
+              createdAt: new Date(),
+              id: randomUUID(),
+              organizationId: invite.communityId,
+              role: invite.role,
+              userId: ctx.user.id,
+            })
+          }
+
+          await tx
+            .update(communityUserInvites)
+            .set({
+              status: 'accepted',
+              updatedAt: new Date(),
+            })
+            .where(eq(communityUserInvites.id, input.inviteId))
+        })
+
+        return { ok: true }
+      }),
+    rejectInvite: protectedProcedure
+      .input(
+        z.object({
+          inviteId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [invite] = await ctx.db
+          .select({
+            id: communityUserInvites.id,
+            status: communityUserInvites.status,
+          })
+          .from(communityUserInvites)
+          .where(
+            and(
+              eq(communityUserInvites.id, input.inviteId),
+              eq(communityUserInvites.invitedUserId, ctx.user.id),
+            ),
+          )
+          .limit(1)
+
+        if (!invite || invite.status !== 'pending') {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa invitación.' })
+        }
+
+        await ctx.db
+          .update(communityUserInvites)
+          .set({
+            status: 'rejected',
+            updatedAt: new Date(),
+          })
+          .where(eq(communityUserInvites.id, input.inviteId))
+
+        return { ok: true }
+      }),
+    cancelInvite: protectedProcedure
+      .input(
+        z.object({
+          inviteId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [invite] = await ctx.db
+          .select({
+            communityId: communityUserInvites.communityId,
+            id: communityUserInvites.id,
+            status: communityUserInvites.status,
+          })
+          .from(communityUserInvites)
+          .where(eq(communityUserInvites.id, input.inviteId))
+          .limit(1)
+
+        if (!invite || invite.status !== 'pending') {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa invitación.' })
+        }
+
+        const actorMembership = await getMembershipForUser(ctx, invite.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canInviteMembers(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes cancelar invitaciones en esta comunidad.',
+          })
+        }
+
+        await ctx.db
+          .update(communityUserInvites)
+          .set({
+            status: 'cancelled',
+            updatedAt: new Date(),
+          })
+          .where(eq(communityUserInvites.id, input.inviteId))
+
+        return { ok: true }
+      }),
+    updateMemberRole: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          role: z.enum(['admin', 'moderator', 'host', 'member']),
+          userId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const targetMembership = await getMembershipForUser(ctx, input.communityId, input.userId)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+        const targetPrimaryRole = getPrimaryRole(targetMembership?.role)
+
+        if (!actorMembership || !targetMembership) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No se encontró ese miembro en la comunidad.',
+          })
+        }
+
+        if (
+          !canAssignRoleToTarget(
+            actorPrimaryRole,
+            targetPrimaryRole,
+            input.role,
+            input.userId === ctx.user.id,
+          )
+        ) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes asignar ese rol.',
+          })
+        }
+
+        await ctx.db
+          .update(member)
+          .set({
+            role: input.role,
+          })
+          .where(eq(member.id, targetMembership.id))
+
+        return { ok: true }
+      }),
+    removeMember: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          userId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const targetMembership = await getMembershipForUser(ctx, input.communityId, input.userId)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+        const targetPrimaryRole = getPrimaryRole(targetMembership?.role)
+
+        if (!actorMembership || !targetMembership) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No se encontró ese miembro en la comunidad.',
+          })
+        }
+
+        if (
+          !canManageTargetMember(actorPrimaryRole, targetPrimaryRole, input.userId === ctx.user.id)
+        ) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes expulsar a ese miembro.',
+          })
+        }
+
+        await ctx.db.delete(member).where(eq(member.id, targetMembership.id))
+
+        return { ok: true }
+      }),
+    blockUser: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          reason: z.string().max(280).optional(),
+          userId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const targetMembership = await getMembershipForUser(ctx, input.communityId, input.userId)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+        const targetPrimaryRole = getPrimaryRole(targetMembership?.role)
+
+        if (!actorMembership || !canBlockUsers(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes bloquear usuarios en esta comunidad.',
+          })
+        }
+
+        if (
+          !canBlockTargetMember(actorPrimaryRole, targetPrimaryRole, input.userId === ctx.user.id)
+        ) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes bloquear a ese usuario.',
+          })
+        }
+
+        const [existingBlock] = await ctx.db
+          .select({ id: communityBlocks.id })
+          .from(communityBlocks)
+          .where(
+            and(
+              eq(communityBlocks.communityId, input.communityId),
+              eq(communityBlocks.userId, input.userId),
+            ),
+          )
+          .limit(1)
+
+        if (!existingBlock) {
+          await ctx.db.insert(communityBlocks).values({
+            blockedByUserId: ctx.user.id,
+            communityId: input.communityId,
+            reason: input.reason?.trim() || null,
+            userId: input.userId,
+          })
+        }
+
+        await ctx.db.transaction(async (tx) => {
+          await tx
+            .delete(member)
+            .where(
+              and(eq(member.organizationId, input.communityId), eq(member.userId, input.userId)),
+            )
+
+          await tx
+            .update(communityUserInvites)
+            .set({
+              status: 'cancelled',
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(communityUserInvites.communityId, input.communityId),
+                eq(communityUserInvites.invitedUserId, input.userId),
+                eq(communityUserInvites.status, 'pending'),
+              ),
+            )
+        })
+
+        return { ok: true }
+      }),
+    unblockUser: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+          userId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const actorMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canBlockUsers(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes desbloquear usuarios en esta comunidad.',
+          })
+        }
+
+        await ctx.db
+          .delete(communityBlocks)
+          .where(
+            and(
+              eq(communityBlocks.communityId, input.communityId),
+              eq(communityBlocks.userId, input.userId),
+            ),
+          )
 
         return { ok: true }
       }),
