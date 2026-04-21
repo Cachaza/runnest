@@ -107,7 +107,7 @@ function RootLayoutNav() {
         </Stack.Protected>
 
         <Stack.Protected guard={!isAuthenticated}>
-          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>
