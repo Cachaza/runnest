@@ -18,7 +18,17 @@ import {
   SectionHeader,
   SegmentedTabs,
 } from '@/components/ui/AppUI';
-import { labelForCommunityKind, labelForMode, labelForVisibility, lowerLabelForCommunityKind } from '@/lib/community-labels';
+import {
+  createMeetupCtaLabel,
+  descriptionForMode,
+  emptyMeetupsCopy,
+  labelForCommunityKind,
+  labelForMeetupStyle,
+  labelForMode,
+  labelForVisibility,
+  lowerLabelForCommunityKind,
+  modeCommunityCardCopy,
+} from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import { trpc } from '@/lib/trpc';
 
@@ -336,6 +346,7 @@ export default function CrewDetailScreen() {
   const manageBadge = pendingJoinRequestsCount + pendingAccessClaimsCount;
   const isStaff = Boolean(community?.viewerCanInviteMembers);
   const isMember = Boolean(community?.viewerMembershipRole);
+  const createMeetupLabel = createMeetupCtaLabel(community?.mode);
 
   const tabOptions = useMemo(() => {
     const base: Array<{ value: TabValue; label: string; badge?: number }> = [
@@ -517,7 +528,7 @@ export default function CrewDetailScreen() {
                     opacity: pressed ? 0.8 : isMutatingStaff ? 0.6 : 1,
                   })}
                   className="flex-1 items-center rounded-[18px] bg-hero-accent px-4 py-[13px]">
-                  <Text className="text-[14px] font-black text-on-accent">+ Crear quedada</Text>
+                  <Text className="text-[14px] font-black text-on-accent">{createMeetupLabel}</Text>
                 </Pressable>
               ) : null}
 
@@ -579,6 +590,21 @@ export default function CrewDetailScreen() {
             />
           </AppCard>
 
+          <AppCard>
+            <Text className="text-[13px] font-black uppercase tracking-[0.6px] text-muted-text">
+              Cómo se organiza
+            </Text>
+            <Text className="mt-2 text-[19px] font-black leading-6 text-text">
+              {labelForMode(community.mode)} · {labelForMeetupStyle(community.mode)}
+            </Text>
+            <Text className="mt-2 text-[14px] leading-[21px] text-muted-text">
+              {descriptionForMode(community.mode)}
+            </Text>
+            <Text className="mt-2 text-[14px] leading-[21px] text-muted-text">
+              {modeCommunityCardCopy(community.mode)}
+            </Text>
+          </AppCard>
+
           <SectionHeader
             title="Próximas quedadas"
             right={
@@ -595,7 +621,7 @@ export default function CrewDetailScreen() {
           {upcomingMeetupsCount === 0 ? (
             <EmptyState
               title="Sin quedadas futuras."
-              body={`Cuando esta ${entityLabelLower} publique una salida, aparecerá aquí.`}
+              body={emptyMeetupsCopy(community.mode, entityLabelLower)}
             />
           ) : null}
 
@@ -604,6 +630,7 @@ export default function CrewDetailScreen() {
               key={meetup.id}
               disabled={isMutatingRsvp}
               meetup={meetup}
+              mode={community.mode}
               onRsvp={handleMeetupAction}
             />
           ))}
@@ -644,14 +671,14 @@ export default function CrewDetailScreen() {
           {community.viewerCanCreateRuns ? (
             <AppButton
               onPress={() => router.push({ pathname: '/modal', params: { communityId } } as any)}>
-              + Crear quedada
+              {createMeetupLabel}
             </AppButton>
           ) : null}
 
           {upcomingMeetupsCount === 0 ? (
             <EmptyState
               title="Sin quedadas futuras."
-              body={`Cuando esta ${entityLabelLower} publique una salida, aparecerá aquí.`}
+              body={emptyMeetupsCopy(community.mode, entityLabelLower)}
             />
           ) : null}
 
@@ -660,6 +687,7 @@ export default function CrewDetailScreen() {
               key={meetup.id}
               disabled={isMutatingRsvp}
               meetup={meetup}
+              mode={community.mode}
               onRsvp={handleMeetupAction}
             />
           ))}
@@ -1169,10 +1197,11 @@ type MeetupRowProps = {
     rsvpCount: number;
     viewerIsGoing: boolean;
   };
+  mode: 'collaborative' | 'managed';
   onRsvp: (meetupId: number, viewerIsGoing: boolean) => void;
 };
 
-function MeetupRow({ disabled, meetup, onRsvp }: MeetupRowProps) {
+function MeetupRow({ disabled, meetup, mode, onRsvp }: MeetupRowProps) {
   return (
     <AppCard>
       <View className="flex-row items-start gap-3">
@@ -1182,6 +1211,9 @@ function MeetupRow({ disabled, meetup, onRsvp }: MeetupRowProps) {
           </Text>
         </View>
         <View className="flex-1 gap-1">
+          <View className="flex-row flex-wrap gap-2">
+            <Chip tone={mode === 'managed' ? 'warm' : 'cool'}>{labelForMeetupStyle(mode)}</Chip>
+          </View>
           <Text className="text-[17px] font-black leading-[22px] text-text" numberOfLines={2}>
             {meetup.title}
           </Text>

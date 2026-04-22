@@ -7,7 +7,14 @@ import { z } from 'zod';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { Chip } from '@/components/ui/AppUI';
-import { labelForCommunityKind } from '@/lib/community-labels';
+import {
+  createMeetupBody,
+  createMeetupCtaLabel,
+  createMeetupTitle,
+  labelForCommunityKind,
+  labelForMeetupStyle,
+  labelForMode,
+} from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 const meetupSchema = z.object({
@@ -34,8 +41,9 @@ export default function ModalScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const communitiesQuery = trpc.communities.hostable.useQuery();
   const createMeetup = trpc.meetups.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (_createdMeetup, variables) => {
       await utils.meetups.upcomingPublic.invalidate();
+      await utils.communities.byId.invalidate({ id: variables.communityId });
       router.back();
     },
     onError: (error) => {
@@ -56,6 +64,8 @@ export default function ModalScreen() {
     () => communitiesQuery.data?.find((community) => community.id === selectedCommunityId) ?? null,
     [communitiesQuery.data, selectedCommunityId],
   );
+  const selectedMode = selectedCommunity?.mode;
+  const submitLabel = createMeetupCtaLabel(selectedMode);
 
   useEffect(() => {
     if (initialCommunityId) {
@@ -101,10 +111,14 @@ export default function ModalScreen() {
       showsVerticalScrollIndicator={false}
       contentContainerClassName="justify-center p-[18px]">
       <View className="rounded-[32px] border border-border bg-surface p-[22px]">
-        <Text className="text-xs font-black uppercase tracking-[1.1px] text-tint">Host a run</Text>
-        <Text className="mt-2.5 text-[32px] font-black leading-9 text-text">Monta la próxima quedada de tu comunidad.</Text>
+        <Text className="text-xs font-black uppercase tracking-[1.1px] text-tint">
+          {selectedMode === 'managed' ? 'Run oficial' : 'Nueva quedada'}
+        </Text>
+        <Text className="mt-2.5 text-[32px] font-black leading-9 text-text">
+          {createMeetupTitle(selectedMode)}
+        </Text>
         <Text className="mt-3 text-[15px] leading-[23px] text-muted-text">
-          Elige una comunidad donde puedas organizar, define la ruta base y publica un plan fácil de entender.
+          {createMeetupBody(selectedMode)}
         </Text>
 
         <Text className="mt-[18px] text-[13px] font-black uppercase tracking-[0.8px] text-muted-text">Comunidad</Text>
@@ -133,11 +147,17 @@ export default function ModalScreen() {
         ) : null}
 
         {selectedCommunity ? (
-          <Text className="mt-2.5 text-sm font-bold leading-5 text-muted-text">
-            {labelForCommunityKind(selectedCommunity.kind)} · {selectedCommunity.city}
-            {selectedCommunity.pace ? ` · ${selectedCommunity.pace}` : ''}
-            {selectedCommunity.vibe ? ` · ${selectedCommunity.vibe}` : ''}
-          </Text>
+          <>
+            <View className="mt-2.5 flex-row flex-wrap gap-2">
+              <Chip tone="neutral">{labelForMode(selectedCommunity.mode)}</Chip>
+              <Chip tone="warm">{labelForMeetupStyle(selectedCommunity.mode)}</Chip>
+            </View>
+            <Text className="mt-2.5 text-sm font-bold leading-5 text-muted-text">
+              {labelForCommunityKind(selectedCommunity.kind)} · {selectedCommunity.city}
+              {selectedCommunity.pace ? ` · ${selectedCommunity.pace}` : ''}
+              {selectedCommunity.vibe ? ` · ${selectedCommunity.vibe}` : ''}
+            </Text>
+          </>
         ) : null}
 
         <View className="mt-4 gap-3">
@@ -223,8 +243,8 @@ export default function ModalScreen() {
           onPress={onSubmit}
           style={({ pressed }) => ({ opacity: pressed ? 0.85 : createMeetup.isPending ? 0.7 : 1 })}
           className={`mt-[18px] items-center rounded-[18px] bg-tint py-4`}>
-           <Text className="text-base font-black text-on-tint">
-            {createMeetup.isPending ? 'Publicando...' : 'Publicar quedada'}
+          <Text className="text-base font-black text-on-tint">
+            {createMeetup.isPending ? 'Publicando...' : submitLabel}
           </Text>
         </Pressable>
       </View>

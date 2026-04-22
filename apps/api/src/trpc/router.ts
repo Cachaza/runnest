@@ -2683,6 +2683,7 @@ export const appRouter = createTRPCRouter({
           id: meetups.id,
           communityId: communities.organizationId,
           communityKind: communities.kind,
+          communityMode: communities.mode,
           communityName: communities.name,
           communityCityLat: communities.cityLat,
           communityCityLng: communities.cityLng,
@@ -2736,6 +2737,7 @@ export const appRouter = createTRPCRouter({
           return {
             communityId: meetup.communityId,
             communityKind: meetup.communityKind,
+            communityMode: meetup.communityMode,
             communityName: meetup.communityName,
             distanceFromViewerKm,
             distanceKm: meetup.distanceKm,

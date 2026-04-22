@@ -22,9 +22,12 @@ import {
   CommunityKind,
   CommunityMode,
   CommunityVisibility,
+  descriptionForMode,
   labelForCommunityKind,
+  labelForMeetupStyle,
   labelForMode,
   labelForVisibility,
+  modeCommunityCardCopy,
 } from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import { trpc } from '@/lib/trpc';
@@ -375,6 +378,12 @@ export default function CommunitiesScreen() {
                       numberOfLines={1}>
                       {meetup.communityName} · {meetup.location}
                     </Text>
+                    <View className="mt-1 flex-row flex-wrap gap-2">
+                      <Chip tone={meetup.communityMode === 'managed' ? 'warm' : 'cool'}>
+                        {labelForMeetupStyle(meetup.communityMode)}
+                      </Chip>
+                      <Chip tone="neutral">{labelForMode(meetup.communityMode)}</Chip>
+                    </View>
                     <Text style={[styles.meetupNote, { color: colors.heroTextMuted }]} numberOfLines={1}>
                       {meetup.distanceKm} km{viewerDistance ? ` · ${viewerDistance} de ti` : ''}
                     </Text>
@@ -829,14 +838,21 @@ function CommunityListItem(props: CommunityListItemProps) {
             <Text className="mt-1 text-[13px] leading-[18px] text-muted-text" numberOfLines={2}>
               {description}
             </Text>
+            <Text className="mt-1 text-[12px] font-bold leading-[17px] text-muted-text" numberOfLines={2}>
+              {descriptionForMode(mode)}
+            </Text>
             <View className="mt-2 flex-row flex-wrap gap-1.5">
               {highlight ? <Chip tone="warm">{highlight}</Chip> : null}
               {pace ? <Chip tone="cool">{pace}</Chip> : null}
               {vibe ? <Chip tone="neutral">{vibe}</Chip> : null}
               <Chip tone="neutral">{labelForMode(mode)}</Chip>
+              <Chip tone={mode === 'managed' ? 'warm' : 'cool'}>{labelForMeetupStyle(mode)}</Chip>
               <Chip tone={visibility === 'private' ? 'warm' : 'cool'}>{labelForVisibility(visibility)}</Chip>
               {canCreateRuns ? <Chip tone="warm">Organiza</Chip> : null}
             </View>
+            <Text className="mt-2 text-[12px] font-bold leading-[17px] text-muted-text" numberOfLines={2}>
+              {modeCommunityCardCopy(mode)}
+            </Text>
           </View>
           <FontAwesome6 name="chevron-right" size={14} color={colors.mutedText} />
         </View>

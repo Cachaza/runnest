@@ -34,6 +34,50 @@ export function labelForMode(mode?: CommunityMode | null) {
   return mode === 'collaborative' ? 'Colaborativo' : 'Dirigido'
 }
 
+export function descriptionForMode(mode?: CommunityMode | null) {
+  if (mode === 'collaborative') {
+    return 'Los miembros activos pueden proponer y organizar quedadas con un estilo más horizontal.'
+  }
+
+  return 'El staff publica las quedadas oficiales y mantiene una propuesta más curada para la comunidad.'
+}
+
+export function labelForMeetupStyle(mode?: CommunityMode | null) {
+  return mode === 'collaborative' ? 'Abierto a miembros' : 'Oficial'
+}
+
+export function createMeetupCtaLabel(mode?: CommunityMode | null) {
+  return mode === 'collaborative' ? '+ Proponer quedada' : '+ Publicar quedada'
+}
+
+export function createMeetupTitle(mode?: CommunityMode | null) {
+  return mode === 'collaborative'
+    ? 'Propón la próxima quedada de tu comunidad.'
+    : 'Publica la próxima quedada oficial de tu comunidad.'
+}
+
+export function createMeetupBody(mode?: CommunityMode | null) {
+  return mode === 'collaborative'
+    ? 'En los espacios collaborative los miembros activos pueden mover el grupo con planes sencillos y claros.'
+    : 'En los espacios managed el staff marca el calendario con quedadas oficiales y una propuesta más guiada.'
+}
+
+export function emptyMeetupsCopy(mode: CommunityMode, entityLabelLower: string) {
+  if (mode === 'collaborative') {
+    return `Cuando alguien de esta ${entityLabelLower} proponga una salida, aparecerá aquí para que el grupo se organice.`
+  }
+
+  return `Cuando el staff de esta ${entityLabelLower} publique una salida oficial, aparecerá aquí.`
+}
+
+export function modeCommunityCardCopy(mode?: CommunityMode | null) {
+  if (mode === 'collaborative') {
+    return 'Aquí los miembros pueden proponer planes, mover horarios y organizar la siguiente quedada.'
+  }
+
+  return 'Aquí el staff publica runs oficiales y cuida mejor qué se mueve dentro de la comunidad.'
+}
+
 export function labelForVisibility(visibility?: CommunityVisibility | null) {
   return visibility === 'public' ? 'Pública' : 'Privada'
 }

@@ -208,3 +208,11 @@ The canonical manual QA path for this slice is:
 - block user
 
 Use [mobile-membership-hardening-checklist.md](./mobile-membership-hardening-checklist.md) as the execution checklist so docs and code stay in sync.
+
+## Post-Hardening Backlog
+
+After the current hardening slice is closed, the next product work should prioritize:
+
+- `https` shareable links for access, invite, and community entry flows
+- stronger behavior differences between `collaborative` and `managed` communities in run creation and organization
+- notification surfaces and status badges for invites, approvals, rejections, removals, and blocks so the experience is less pull-based
