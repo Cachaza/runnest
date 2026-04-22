@@ -32,7 +32,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             backgroundColor: colors.surface,
             borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(92,72,51,0.08)',
             shadowColor: isDark ? '#000' : '#5C4833',
-            shadowOpacity: isDark ? 0.45 : 0.16,
+            shadowOpacity: isDark ? 0.5 : 0.2,
           },
         ]}>
         {state.routes.map((route, index) => {
@@ -63,32 +63,42 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           };
 
           return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={focused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              style={({ pressed }) => [
-                styles.tabItem,
-                focused ? { backgroundColor: colors.tint } : null,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}>
-              <FontAwesome6
-                name={meta.icon}
-                size={focused ? 16 : 18}
-                color={focused ? colors.onTint : colors.tabIconDefault}
-                solid
-              />
-              {focused ? (
+            <View key={route.key} style={styles.tabSlot}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={focused ? { selected: true } : {}}
+                accessibilityLabel={options.tabBarAccessibilityLabel ?? label}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                style={({ pressed }) => [
+                  styles.tabItem,
+                  focused
+                    ? {
+                        backgroundColor: colors.chip,
+                        shadowColor: isDark ? '#000' : '#5C4833',
+                        shadowOpacity: isDark ? 0.18 : 0.1,
+                      }
+                    : null,
+                  { opacity: pressed ? 0.75 : 1 },
+                ]}>
+                <View style={styles.iconCircle}>
+                  <FontAwesome6
+                    name={meta.icon}
+                    size={20}
+                    color={focused ? colors.tabIconSelected : colors.tabIconDefault}
+                    solid
+                  />
+                </View>
                 <Text
                   numberOfLines={1}
-                  style={[styles.tabLabel, { color: colors.onTint }]}>
+                  style={[
+                    styles.tabLabel,
+                    { color: focused ? colors.tabIconSelected : colors.tabIconDefault },
+                  ]}>
                   {label}
                 </Text>
-              ) : null}
-            </Pressable>
+              </Pressable>
+            </View>
           );
         })}
       </View>
@@ -204,33 +214,50 @@ const styles = StyleSheet.create({
   tabBarWrapper: {
     alignItems: 'center',
     left: 0,
-    paddingHorizontal: 22,
     position: 'absolute',
     right: 0,
   },
   tabBarPill: {
-    borderWidth: 1,
+    alignItems: 'stretch',
     borderRadius: 999,
-    elevation: 16,
+    borderWidth: 1,
+    elevation: 18,
     flexDirection: 'row',
-    gap: 4,
-    padding: 6,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 20,
+    gap: 8,
+    justifyContent: 'space-between',
+    maxWidth: 390,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 22,
+    width: '88%',
+  },
+  tabSlot: {
+    flex: 1,
   },
   tabItem: {
     alignItems: 'center',
     borderRadius: 999,
-    flexDirection: 'row',
-    gap: 8,
+    alignSelf: 'stretch',
+    gap: 4,
     justifyContent: 'center',
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    minHeight: 62,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    width: '100%',
+  },
+  iconCircle: {
+    alignItems: 'center',
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
   },
   tabLabel: {
     fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
+    textAlign: 'center',
   },
 });
