@@ -13,7 +13,7 @@
     "db:up": "docker compose up -d",
     "dev": "sh -c 'pnpm dev:api & api_pid=$!; trap \"kill $api_pid 2>/dev/null\" EXIT INT TERM; pnpm dev:mobile'",
     "dev:api": "pnpm --filter @apprunners/api dev",
-    "dev:mobile": "pnpm --filter @apprunners/mobile start"
+    "dev:mobile": "pnpm --filter @apprunners/mobile start -- --go"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

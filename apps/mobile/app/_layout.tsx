@@ -1,15 +1,17 @@
+import * as Linking from 'expo-linking';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import '../global.css';
 import 'react-native-reanimated';
 
 import { AppProviders } from '@/components/AppProviders';
 import { useAppTheme } from '@/components/ThemeContext';
 import { authClient } from '@/lib/auth-client';
+import { protectedHrefFromIncomingUrl } from '@/lib/protected-deep-links';
 import { trpc } from '@/lib/trpc';
 
 export {
@@ -48,6 +50,7 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const { colorScheme, colors } = useAppTheme();
   const { data: session, isPending } = authClient.useSession();
+  const [pendingProtectedHref, setPendingProtectedHref] = useState<string | null>(null);
   const isAuthenticated = Boolean(session);
   const profileQuery = trpc.profile.me.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -89,6 +92,56 @@ function RootLayoutNav() {
       SplashScreen.hideAsync();
     }
   }, [isCheckingProfile, isPending]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function hydratePendingProtectedHref() {
+      const href = protectedHrefFromIncomingUrl(await Linking.getInitialURL());
+
+      if (!isMounted || !href) {
+        return;
+      }
+
+      if (canUseApp) {
+        router.replace(href as any);
+        return;
+      }
+
+      setPendingProtectedHref(href);
+    }
+
+    hydratePendingProtectedHref();
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      const href = protectedHrefFromIncomingUrl(url);
+
+      if (!href) {
+        return;
+      }
+
+      if (canUseApp) {
+        router.replace(href as any);
+        return;
+      }
+
+      setPendingProtectedHref(href);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [canUseApp]);
+
+  useEffect(() => {
+    if (!canUseApp || !pendingProtectedHref) {
+      return;
+    }
+
+    router.replace(pendingProtectedHref as any);
+    setPendingProtectedHref(null);
+  }, [canUseApp, pendingProtectedHref]);
 
   if (isPending || isCheckingProfile) {
     return null;

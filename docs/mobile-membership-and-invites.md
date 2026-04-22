@@ -13,6 +13,25 @@ But the product UX for membership and access should be mobile-first and app-nati
 
 The main invitation flow should not be email-first.
 
+## Status
+
+- [x] Org-backed communities with Better Auth `organization`
+- [x] API wrapper/service for org-backed membership writes
+- [x] Transactional create flow between `organization` and `communities`
+- [x] In-app invites by `username`
+- [x] Accept/reject invite inside the mobile app
+- [x] Member role management in community detail
+- [x] Block/unblock at product layer
+- [x] Reusable `community_access_links`
+- [x] Approval-required access links for managed/private setups
+- [x] Access-link claim review and source attribution
+- [x] Private `request to join`
+- [x] Search-by-known-name/slug for private communities
+- [x] Integration tests for core membership and permission flows
+- [x] Unified membership invalidation/refresh on mobile after membership changes
+- [x] Protected re-entry for `community-access` deep links after auth/onboarding
+- [ ] Invite deep links and direct community deep links still pending implementation
+
 ## Product Decision
 
 ### Primary flows
@@ -27,6 +46,7 @@ The main invitation flow should not be email-first.
 
 - the user gets invited inside the app
 - or the user uses an app-native invite/access link later
+- or the user searches a known name/slug and sends a join request
 
 3. Managed creator communities
 
@@ -59,10 +79,12 @@ Better Auth `organization` remains the final authority for membership and role a
 The app adds its own product-native membership primitives:
 
 - `community_user_invites`
-- later `community_access_links`
-- later membership requests if needed
+- `community_access_links`
+- `community_join_requests`
 
 When an invite is accepted, the app performs the final membership write into the org-backed member system.
+
+In API, those org-backed writes now go through a dedicated `community-membership service` so router procedures do not call Better Auth membership APIs directly and error mapping stays consistent.
 
 ## Phase Order
 
@@ -72,12 +94,15 @@ When an invite is accepted, the app performs the final membership write into the
 - accept/reject inside the app
 - member role management
 - block/unblock users
+- public join for public communities
 
 ### Phase 2
 
 - reusable invite/access links
 - per-link attribution and analytics
 - approval-required links for private or managed communities
+- private join requests
+- explicit search for known private communities
 
 ### Phase 3
 
@@ -106,22 +131,80 @@ The user should be able to:
 - manage members in-app
 - invite known users by username in-app
 
+### Private communities are not public discovery inventory
+
+- they do not appear in general public lists
+- they do not appear in recommendation feeds
+- they can be reached by direct access link
+- they can be found only through deliberate search by known name, slug or city hint
+- if a user finds one this way, they can request access without exposing all private spaces to everyone
+
 ## Current Implementation Direction
 
-We are implementing now:
+- public communities remain run-first discovery
+- private communities are invite/link/request based
+- Better Auth org membership remains the final source of truth
+- product access UX remains app-native and mobile-first
+- create community is persisted transactionally across auth-backed org rows and app community rows
+- membership writes are centralized in a service layer instead of being scattered across router procedures
+- mobile invalidates membership-related queries from one shared helper to avoid stale tabs/detail state
 
-- org-backed membership
-- staff management in community detail
-- in-app invites by `username`
+Reusable invite links and private join requests are already in the product layer. The active hardening slice is now largely closed at API and state-sync level; the remaining open item is executing the guided manual QA pass and deciding when to ship future invite/community deep links.
 
-Reusable invite links are a planned next step, not the main focus of this implementation slice.
+## Preset Policy By Community Type
 
-## Next Slice
+- `crew_local`
+- default `mode`: `collaborative`
+- default `visibility`: `public`
+- default access-link behavior: auto-join allowed
+- rationale: open local growth and lightweight coordination
 
-The next implementation slice after username invites is:
+- `creator_community`
+- default `mode`: `managed`
+- default `visibility`: `public`
+- default access-link behavior: approval recommended but not forced
+- rationale: creators need flexible top-of-funnel growth with optional staff review
 
-- `community_access_links`
-- staff-created reusable codes
-- optional approval before join
-- in-app code redemption
-- per-link usage and request tracking
+- `club`
+- default `mode`: `managed`
+- default `visibility`: `private`
+- default access-link behavior: approval required
+- rationale: access is intentionally controlled and should not open accidentally
+
+- `training_group`
+- default `mode`: `managed`
+- default `visibility`: `public`
+- default access-link behavior: approval recommended
+- rationale: structured groups usually need staff control even when discoverable
+
+The form presets in mobile and the access-link defaults in API should stay aligned with this table unless we make an explicit product decision and update both.
+
+## Deep Link Policy
+
+- Current supported protected deep link: `community-access`
+- Behavior: if the user is not ready yet, the app stores the target route, completes sign-in/onboarding, and only then re-enters the protected route
+- Policy for future invite/community links: reuse the same protected-route gate instead of letting each screen resolve auth state ad hoc
+- Candidate future routes under this policy:
+- invite redemption routes
+- direct community detail links that should only open after auth/onboarding
+
+Until those routes exist, `community-access` is the only route whitelisted in the protected deep-link parser.
+
+The forward plan for public/shareable `https` links, Universal Links, and invite/community URLs lives in [https-linking-plan.md](./https-linking-plan.md).
+
+## QA Scope
+
+The canonical manual QA path for this slice is:
+
+- sign-in
+- onboarding
+- app re-entry through `community-access`
+- public join
+- private request join
+- in-app invite accept/reject
+- access-link redeem and approve
+- role update
+- member removal
+- block user
+
+Use [mobile-membership-hardening-checklist.md](./mobile-membership-hardening-checklist.md) as the execution checklist so docs and code stay in sync.

@@ -1,4 +1,5 @@
-import { PropsWithChildren, ReactNode } from 'react';
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { PropsWithChildren, ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -177,5 +178,195 @@ export function AppButton({ children, disabled, style, tone = 'primary', ...prop
       {...props}>
       <Text className={`text-[15px] font-black ${textClassName}`}>{children}</Text>
     </Pressable>
+  );
+}
+
+type SegmentedTabsOption<T extends string> = {
+  badge?: number;
+  label: string;
+  value: T;
+};
+
+type SegmentedTabsProps<T extends string> = {
+  onChange: (value: T) => void;
+  options: ReadonlyArray<SegmentedTabsOption<T>>;
+  value: T;
+};
+
+export function SegmentedTabs<T extends string>({
+  onChange,
+  options,
+  value,
+}: SegmentedTabsProps<T>) {
+  const { isDark } = useAppTheme();
+
+  return (
+    <View className="flex-row gap-1 rounded-full bg-chip p-1">
+      {options.map((option) => {
+        const isActive = option.value === value;
+        const badgeCount = option.badge ?? 0;
+        const showBadge = badgeCount > 0;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full px-2 py-2.5 ${
+              isActive ? 'bg-surface' : ''
+            }`}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+              shadowColor: isActive ? (isDark ? '#000' : '#5C4833') : 'transparent',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isActive ? (isDark ? 0.3 : 0.08) : 0,
+              shadowRadius: 6,
+              elevation: isActive ? 2 : 0,
+            })}>
+            <Text
+              numberOfLines={1}
+              className={`text-[13px] font-black ${isActive ? 'text-text' : 'text-muted-text'}`}>
+              {option.label}
+            </Text>
+            {showBadge ? (
+              <View
+                className={`min-w-[18px] items-center rounded-full px-1.5 py-0.5 ${
+                  isActive ? 'bg-tint' : 'bg-badge-warm'
+                }`}>
+                <Text
+                  className={`text-[10px] font-black ${
+                    isActive ? 'text-on-tint' : 'text-on-accent'
+                  }`}>
+                  {badgeCount > 99 ? '99+' : badgeCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+type HorizontalScrollerProps = PropsWithChildren<{
+  contentStyle?: StyleProp<ViewStyle>;
+}>;
+
+export function HorizontalScroller({ children, contentStyle }: HorizontalScrollerProps) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={contentStyle}
+      contentContainerClassName="gap-3 pr-2">
+      {children}
+    </ScrollView>
+  );
+}
+
+type QuickActionProps = {
+  icon: React.ComponentProps<typeof FontAwesome6>['name'];
+  label: string;
+  onPress: () => void;
+  tone?: 'primary' | 'neutral';
+};
+
+export function QuickAction({ icon, label, onPress, tone = 'neutral' }: QuickActionProps) {
+  const { colors } = useAppTheme();
+  const isPrimary = tone === 'primary';
+  const iconColor = isPrimary ? colors.onTint : colors.text;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+      className={`flex-1 items-center gap-2 rounded-card border border-border px-3 py-4 ${
+        isPrimary ? 'bg-tint' : 'bg-surface'
+      }`}>
+      <View
+        className={`h-10 w-10 items-center justify-center rounded-full ${isPrimary ? '' : 'bg-chip'}`}
+        style={isPrimary ? { backgroundColor: 'rgba(255,255,255,0.18)' } : undefined}>
+        <FontAwesome6 name={icon} size={16} color={iconColor} solid />
+      </View>
+      <Text
+        numberOfLines={1}
+        className={`text-[12px] font-black uppercase tracking-[0.5px] ${
+          isPrimary ? 'text-on-tint' : 'text-text'
+        }`}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function QuickActionRow({ children }: PropsWithChildren) {
+  return <View className="flex-row gap-2.5">{children}</View>;
+}
+
+type CollapsibleCardProps = PropsWithChildren<{
+  badge?: number;
+  defaultOpen?: boolean;
+  subtitle?: string;
+  title: string;
+}>;
+
+export function CollapsibleCard({
+  badge,
+  children,
+  defaultOpen = false,
+  subtitle,
+  title,
+}: CollapsibleCardProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const { colors } = useAppTheme();
+  const showBadge = typeof badge === 'number' && badge > 0;
+
+  return (
+    <View className="overflow-hidden rounded-card border border-border bg-surface">
+      <Pressable
+        onPress={() => setOpen((prev) => !prev)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+        className="flex-row items-center justify-between gap-3 px-5 py-4">
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-[17px] font-black text-text">{title}</Text>
+            {showBadge ? (
+              <View className="min-w-[22px] items-center rounded-full bg-tint px-2 py-[3px]">
+                <Text className="text-[11px] font-black text-on-tint">
+                  {badge > 99 ? '99+' : badge}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {subtitle ? (
+            <Text className="mt-0.5 text-[13px] font-bold text-muted-text">{subtitle}</Text>
+          ) : null}
+        </View>
+        <FontAwesome6
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={14}
+          color={colors.mutedText}
+        />
+      </Pressable>
+      {open ? <View className="gap-3 px-5 pb-5 pt-1">{children}</View> : null}
+    </View>
+  );
+}
+
+type MetaRowProps = {
+  items: Array<{ label: string; value: string | number }>;
+};
+
+export function MetaRow({ items }: MetaRowProps) {
+  return (
+    <View className="flex-row flex-wrap gap-x-5 gap-y-2">
+      {items.map((item) => (
+        <View key={item.label}>
+          <Text className="text-[11px] font-black uppercase tracking-[0.6px] text-muted-text">
+            {item.label}
+          </Text>
+          <Text className="text-[17px] font-black text-text">{item.value}</Text>
+        </View>
+      ))}
+    </View>
   );
 }

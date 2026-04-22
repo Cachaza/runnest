@@ -30,6 +30,7 @@ export type CommunityUserInviteStatus =
   | 'rejected'
   | 'cancelled'
   | 'expired'
+export type CommunityJoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 export type CommunityAccessLinkClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 
 export const profiles = pgTable(
@@ -195,6 +196,36 @@ export const communityUserInvites = pgTable(
       table.status,
     ),
     statusIndex: index('community_user_invites_status_idx').on(table.status),
+  }),
+)
+
+export const communityJoinRequests = pgTable(
+  'community_join_requests',
+  {
+    id: text('id').primaryKey(),
+    communityId: text('community_id')
+      .notNull()
+      .references(() => communities.organizationId, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').$type<CommunityJoinRequestStatus>().notNull().default('pending'),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedByUserId: text('reviewed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => ({
+    communityStatusIndex: index('community_join_requests_community_status_idx').on(
+      table.communityId,
+      table.status,
+    ),
+    communityUserIndex: uniqueIndex('community_join_requests_community_user_idx').on(
+      table.communityId,
+      table.userId,
+    ),
+    userStatusIndex: index('community_join_requests_user_status_idx').on(table.userId, table.status),
   }),
 )
 

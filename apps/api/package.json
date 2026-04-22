@@ -5,15 +5,16 @@
     "db:migrate": "pnpm --filter @apprunners/db db:push",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:integration": "pnpm --filter @apprunners/geo build && pnpm --filter @apprunners/db build && vitest run src/trpc/community-membership.integration.test.ts"
   },
   "dependencies": {
     "@apprunners/db": "workspace:*",
     "@apprunners/geo": "workspace:*",
-    "@better-auth/expo": "^1.3.4",
     "@better-auth/drizzle-adapter": "^1.4.21",
-    "@hono/trpc-server": "^0.4.0",
+    "@better-auth/expo": "^1.3.4",
     "@hono/node-server": "^1.19.11",
+    "@hono/trpc-server": "^0.4.0",
     "@trpc/server": "^11.7.1",
     "better-auth": "^1.3.4",
     "dotenv": "^17.2.3",
@@ -25,6 +26,7 @@
     "@better-auth/cli": "^1.4.21",
     "@types/node": "^20.11.17",
     "tsx": "^4.7.1",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.5"
   }
 }

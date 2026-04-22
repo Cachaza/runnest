@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import { count } from 'drizzle-orm'
 
 import { findMunicipalityBySlug, type Municipality } from '@apprunners/geo'
@@ -6,6 +8,7 @@ import { db, pool } from './client.js'
 import type {
   AvailabilitySlot,
   CommunityKind,
+  CommunityJoinRequestStatus,
   CommunityMode,
   CommunityVisibility,
   MeetupVisibility,
@@ -15,6 +18,7 @@ import {
   communityAccessLinks,
   communities,
   communityBlocks,
+  communityJoinRequests,
   communityUserInvites,
   invitation,
   meetups,
@@ -130,6 +134,14 @@ type SeedAccessLinkClaim = {
   communityId: string
   userId: string
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  reviewedByUserId?: string
+}
+
+type SeedJoinRequest = {
+  id: string
+  communityId: string
+  userId: string
+  status: CommunityJoinRequestStatus
   reviewedByUserId?: string
 }
 
@@ -693,7 +705,23 @@ const seedAccessLinkClaims: SeedAccessLinkClaim[] = [
   },
 ]
 
-async function seed() {
+const seedJoinRequests: SeedJoinRequest[] = [
+  {
+    id: 'join-request-bilbao-laura',
+    communityId: 'org-bilbao-athletics',
+    userId: 'user-laura-montjuic',
+    status: 'pending',
+  },
+  {
+    id: 'join-request-bilbao-ruben',
+    communityId: 'org-bilbao-athletics',
+    userId: 'user-ruben-malvarrosa',
+    status: 'rejected',
+    reviewedByUserId: 'user-jone-bilbao',
+  },
+]
+
+export async function seed() {
   const now = new Date()
 
   await db.transaction(async (tx) => {
@@ -701,6 +729,7 @@ async function seed() {
     await tx.delete(communityBlocks)
     await tx.delete(communityAccessLinkClaims)
     await tx.delete(communityAccessLinks)
+    await tx.delete(communityJoinRequests)
     await tx.delete(communityUserInvites)
     await tx.delete(meetups)
     await tx.delete(invitation)
@@ -866,6 +895,18 @@ async function seed() {
       })),
     )
 
+    await tx.insert(communityJoinRequests).values(
+      seedJoinRequests.map((entry) => ({
+        communityId: entry.communityId,
+        id: entry.id,
+        requestedAt: now,
+        reviewedAt: entry.reviewedByUserId ? now : null,
+        reviewedByUserId: entry.reviewedByUserId ?? null,
+        status: entry.status,
+        userId: entry.userId,
+      })),
+    )
+
     const insertedMeetups = await tx
       .insert(meetups)
       .values(
@@ -945,11 +986,16 @@ async function seed() {
   )
 }
 
-seed()
-  .catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
-  .finally(async () => {
-    await pool.end()
-  })
+const isDirectExecution =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]
+
+if (isDirectExecution) {
+  seed()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      await pool.end()
+    })
+}

@@ -18,6 +18,7 @@ export default defineConfig({
     'profiles',
     'communities',
     'community_blocks',
+    'community_join_requests',
     'community_access_links',
     'community_access_link_claims',
     'community_user_invites',

@@ -4,6 +4,7 @@ import { Alert, Text, TextInput, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { AppButton, AppCard, ScreenScroll } from '@/components/ui/AppUI';
+import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import { trpc } from '@/lib/trpc';
 
 export default function CommunityAccessScreen() {
@@ -14,10 +15,7 @@ export default function CommunityAccessScreen() {
   const [code, setCode] = useState('');
   const redeemMutation = trpc.communities.redeemAccessLink.useMutation({
     onSuccess: async (result) => {
-      await Promise.all([
-        utils.communities.myMemberships.invalidate(),
-        utils.communities.myInvites.invalidate(),
-      ]);
+      await invalidateCommunityMembershipState(utils, { communityId: result.communityId });
 
       if (result.status === 'joined' || result.status === 'already_member') {
         router.replace(`/crew/${result.communityId}` as any);
@@ -28,7 +26,7 @@ export default function CommunityAccessScreen() {
         'Solicitud enviada',
         `Tu acceso a ${result.communityName} queda pendiente de aprobación del staff.`,
       );
-      router.back();
+      router.replace('/communities');
     },
     onError: (error) => {
       Alert.alert('No se pudo usar el código', error.message);

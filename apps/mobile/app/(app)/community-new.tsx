@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { AppButton, AppCard, Chip, ScreenScroll } from '@/components/ui/AppUI';
+import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import {
   descriptionForCommunityKind,
   labelForCommunityKind,
@@ -58,12 +59,7 @@ export default function CommunityNewScreen() {
   const [hasEditedSlug, setHasEditedSlug] = useState(false);
   const createCommunity = trpc.communities.create.useMutation({
     onSuccess: async (createdCommunity) => {
-      await Promise.all([
-        utils.communities.listPublic.invalidate(),
-        utils.communities.recommended.invalidate(),
-        utils.communities.myMemberships.invalidate(),
-        utils.communities.hostable.invalidate(),
-      ]);
+      await invalidateCommunityMembershipState(utils, { communityId: createdCommunity.id });
       router.replace(`/crew/${createdCommunity.id}` as any);
     },
     onError: (error) => {

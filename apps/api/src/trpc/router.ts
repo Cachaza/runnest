@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { TRPCError } from '@trpc/server'
-import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import {
@@ -9,17 +9,24 @@ import {
   communityAccessLinks,
   communities,
   communityBlocks,
+  communityJoinRequests,
   communityUserInvites,
   meetups,
   meetupRsvps,
   member,
-  organization,
   profiles,
   user,
 } from '@apprunners/db'
 import { searchMunicipalities } from '@apprunners/geo'
 
 import { COMMUNITY_ROLE_ORDER, type CommunityRoleName } from '../lib/community-auth.js'
+import {
+  addMemberToCommunity,
+  createCommunityMembershipRecord,
+  leaveCommunityMembership,
+  removeMemberFromCommunity,
+  updateCommunityMemberRole,
+} from '../lib/community-membership-service.js'
 import { geocodeWithCartociudad } from '../lib/geocoding/cartociudad.js'
 import { geocodeWithNominatim } from '../lib/geocoding/nominatim.js'
 import { createTRPCRouter, protectedProcedure, publicProcedure } from './init.js'
@@ -248,6 +255,10 @@ function canBlockUsers(actorRole: CommunityRoleName | null) {
 }
 
 function canManageAccessLinks(actorRole: CommunityRoleName | null) {
+  return actorRole === 'owner' || actorRole === 'admin'
+}
+
+function canReviewJoinRequests(actorRole: CommunityRoleName | null) {
   return actorRole === 'owner' || actorRole === 'admin'
 }
 
@@ -885,6 +896,114 @@ export const appRouter = createTRPCRouter({
         })
         .map(({ locationTier: _locationTier, ...community }) => community)
     }),
+    search: protectedProcedure
+      .input(
+        z.object({
+          query: z.string().trim().min(2).max(80),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const searchPattern = `%${input.query.trim()}%`
+        const matchingCommunities = await ctx.db
+          .select({
+            id: communities.organizationId,
+            slug: communities.slug,
+            name: communities.name,
+            description: communities.description,
+            kind: communities.kind,
+            mode: communities.mode,
+            visibility: communities.visibility,
+            city: communities.city,
+            pace: communities.pace,
+            vibe: communities.vibe,
+          })
+          .from(communities)
+          .where(
+            or(
+              ilike(communities.name, searchPattern),
+              ilike(communities.slug, searchPattern),
+              ilike(communities.city, searchPattern),
+            ),
+          )
+          .orderBy(desc(communities.createdAt))
+          .limit(12)
+
+        if (matchingCommunities.length === 0) {
+          return []
+        }
+
+        const communityIds = matchingCommunities.map((community) => community.id)
+        const [blockedRows, membershipRows, joinRequestRows] = await Promise.all([
+          ctx.db
+            .select({
+              communityId: communityBlocks.communityId,
+            })
+            .from(communityBlocks)
+            .where(
+              and(
+                eq(communityBlocks.userId, ctx.user.id),
+                inArray(communityBlocks.communityId, communityIds),
+              ),
+            ),
+          ctx.db
+            .select({
+              communityId: member.organizationId,
+              role: member.role,
+            })
+            .from(member)
+            .where(and(eq(member.userId, ctx.user.id), inArray(member.organizationId, communityIds))),
+          ctx.db
+            .select({
+              communityId: communityJoinRequests.communityId,
+              id: communityJoinRequests.id,
+              requestedAt: communityJoinRequests.requestedAt,
+              reviewedAt: communityJoinRequests.reviewedAt,
+              status: communityJoinRequests.status,
+            })
+            .from(communityJoinRequests)
+            .where(
+              and(
+                eq(communityJoinRequests.userId, ctx.user.id),
+                inArray(communityJoinRequests.communityId, communityIds),
+              ),
+            ),
+        ])
+
+        const blockedCommunityIds = new Set(blockedRows.map((row) => row.communityId))
+        const membershipByCommunityId = new Map(
+          membershipRows.map((row) => [row.communityId, row.role] as const),
+        )
+        const joinRequestByCommunityId = new Map(
+          joinRequestRows.map((row) => [row.communityId, row] as const),
+        )
+
+        return matchingCommunities
+          .filter((community) => !(community.visibility === 'private' && blockedCommunityIds.has(community.id)))
+          .map((community) => {
+            const viewerMembershipRole = membershipByCommunityId.get(community.id) ?? null
+            const joinRequest = joinRequestByCommunityId.get(community.id) ?? null
+            const isBlocked = blockedCommunityIds.has(community.id)
+            const isMember = Boolean(viewerMembershipRole)
+
+            return {
+              ...community,
+              canJoinDirectly: community.visibility === 'public' && !isMember && !isBlocked,
+              canOpen: community.visibility === 'public' || isMember,
+              canRequestJoin:
+                community.visibility === 'private' &&
+                !isMember &&
+                !isBlocked &&
+                joinRequest?.status !== 'pending',
+              isBlocked,
+              isMember,
+              joinRequestId: joinRequest?.id ?? null,
+              joinRequestRequestedAt: joinRequest?.requestedAt ?? null,
+              joinRequestReviewedAt: joinRequest?.reviewedAt ?? null,
+              joinRequestStatus: joinRequest?.status ?? null,
+              viewerMembershipRole,
+            }
+          })
+      }),
     byId: publicProcedure
       .input(
         z.object({
@@ -924,6 +1043,7 @@ export const appRouter = createTRPCRouter({
         const viewerCanInviteMembers = canInviteMembers(viewerPrimaryRole)
         const viewerCanManageRoles = canManageRole(viewerPrimaryRole)
         const viewerCanBlockUsers = canBlockUsers(viewerPrimaryRole)
+        const viewerCanReviewJoinRequests = canReviewJoinRequests(viewerPrimaryRole)
 
         if (community.visibility === 'private' && !viewerMembership) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
@@ -1019,6 +1139,26 @@ export const appRouter = createTRPCRouter({
                 ),
               )
               .orderBy(desc(communityUserInvites.createdAt))
+          : []
+        const pendingJoinRequests = viewerCanReviewJoinRequests
+          ? await ctx.db
+              .select({
+                id: communityJoinRequests.id,
+                requestedAt: communityJoinRequests.requestedAt,
+                userId: communityJoinRequests.userId,
+                userName: user.name,
+                username: profiles.username,
+              })
+              .from(communityJoinRequests)
+              .innerJoin(user, eq(communityJoinRequests.userId, user.id))
+              .innerJoin(profiles, eq(communityJoinRequests.userId, profiles.userId))
+              .where(
+                and(
+                  eq(communityJoinRequests.communityId, input.id),
+                  eq(communityJoinRequests.status, 'pending'),
+                ),
+              )
+              .orderBy(desc(communityJoinRequests.requestedAt))
           : []
 
         const accessLinks = viewerCanInviteMembers
@@ -1128,6 +1268,7 @@ export const appRouter = createTRPCRouter({
             viewerCanCreateRuns,
             viewerCanInviteMembers,
             viewerCanManageRoles,
+            viewerCanReviewJoinRequests,
             viewerMembershipRole: viewerMembership?.role ?? null,
           },
           blockedUsers: blockedUsers.map((blockedUser) => ({
@@ -1210,6 +1351,10 @@ export const appRouter = createTRPCRouter({
               ...invite,
               canCancel: viewerCanInviteMembers,
             })),
+          pendingJoinRequests: pendingJoinRequests.map((request) => ({
+            ...request,
+            canReview: viewerCanReviewJoinRequests,
+          })),
           pendingAccessClaims: pendingAccessClaims.map((claim) => ({
             ...claim,
             canReview: viewerCanInviteMembers,
@@ -1317,67 +1462,154 @@ export const appRouter = createTRPCRouter({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const existingCommunity = await ctx.db.query.communities.findFirst({
-          where: eq(communities.slug, input.slug),
+        return createCommunityMembershipRecord(ctx.db, {
+          city: input.citySelection.municipality,
+          cityLat: input.citySelection.latitude,
+          cityLng: input.citySelection.longitude,
+          cityProvince: input.citySelection.province,
+          citySlug: input.citySelection.slug,
+          description: input.description,
+          kind: input.kind,
+          mode: input.mode,
+          name: input.name,
+          ownerUserId: ctx.user.id,
+          pace: input.pace ?? null,
+          slug: input.slug,
+          vibe: input.vibe ?? null,
+          visibility: input.visibility,
+        })
+      }),
+    requestJoin: protectedProcedure
+      .input(
+        z.object({
+          communityId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const community = await ctx.db.query.communities.findFirst({
+          where: eq(communities.organizationId, input.communityId),
         })
 
-        if (existingCommunity) {
-          throw new TRPCError({ code: 'CONFLICT', message: 'Ese slug ya está en uso.' })
+        if (!community) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa comunidad.' })
         }
 
-        const existingOrganization = await ctx.db.query.organization.findFirst({
-          where: eq(organization.slug, input.slug),
-        })
-
-        if (existingOrganization) {
-          throw new TRPCError({ code: 'CONFLICT', message: 'Ese slug ya está en uso.' })
+        if (community.visibility !== 'private') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Las comunidades públicas se unen directamente.',
+          })
         }
 
-        const organizationId = randomUUID()
-        const now = new Date()
-
-        await ctx.db.transaction(async (tx) => {
-          await tx.insert(organization).values({
-            createdAt: now,
-            id: organizationId,
-            metadata: null,
-            name: input.name,
-            slug: input.slug,
-            updatedAt: now,
+        if (await isUserBlockedInCommunity(ctx, input.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes solicitar acceso a esta comunidad.',
           })
+        }
 
-          await tx.insert(member).values({
-            createdAt: now,
-            id: randomUUID(),
-            organizationId,
-            role: 'owner',
-            userId: ctx.user.id,
-          })
+        const existingMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
 
-          await tx.insert(communities).values({
-            city: input.citySelection.municipality,
-            cityLat: input.citySelection.latitude,
-            cityLng: input.citySelection.longitude,
-            cityProvince: input.citySelection.province,
-            citySlug: input.citySelection.slug,
-            createdAt: now,
-            description: input.description,
-            kind: input.kind,
-            mode: input.mode,
-            name: input.name,
-            organizationId,
-            pace: input.pace ?? null,
-            slug: input.slug,
-            updatedAt: now,
-            vibe: input.vibe ?? null,
-            visibility: input.visibility,
+        if (existingMembership) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Ya formas parte de esta comunidad.',
           })
+        }
+
+        const [existingJoinRequest] = await ctx.db
+          .select({
+            id: communityJoinRequests.id,
+            status: communityJoinRequests.status,
+          })
+          .from(communityJoinRequests)
+          .where(
+            and(
+              eq(communityJoinRequests.communityId, input.communityId),
+              eq(communityJoinRequests.userId, ctx.user.id),
+            ),
+          )
+          .limit(1)
+
+        if (existingJoinRequest?.status === 'pending') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Ya tienes una solicitud pendiente en esta comunidad.',
+          })
+        }
+
+        if (existingJoinRequest) {
+          await ctx.db
+            .update(communityJoinRequests)
+            .set({
+              requestedAt: new Date(),
+              reviewedAt: null,
+              reviewedByUserId: null,
+              status: 'pending',
+            })
+            .where(eq(communityJoinRequests.id, existingJoinRequest.id))
+
+          return {
+            ok: true,
+            requestId: existingJoinRequest.id,
+          }
+        }
+
+        const requestId = randomUUID()
+
+        await ctx.db.insert(communityJoinRequests).values({
+          communityId: input.communityId,
+          id: requestId,
+          requestedAt: new Date(),
+          reviewedAt: null,
+          reviewedByUserId: null,
+          status: 'pending',
+          userId: ctx.user.id,
         })
 
         return {
-          id: organizationId,
-          slug: input.slug,
+          ok: true,
+          requestId,
         }
+      }),
+    cancelJoinRequest: protectedProcedure
+      .input(
+        z.object({
+          requestId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [joinRequest] = await ctx.db
+          .select({
+            id: communityJoinRequests.id,
+            status: communityJoinRequests.status,
+            userId: communityJoinRequests.userId,
+          })
+          .from(communityJoinRequests)
+          .where(eq(communityJoinRequests.id, input.requestId))
+          .limit(1)
+
+        if (!joinRequest || joinRequest.userId !== ctx.user.id) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa solicitud.' })
+        }
+
+        if (joinRequest.status !== 'pending') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Solo puedes cancelar solicitudes pendientes.',
+          })
+        }
+
+        await ctx.db
+          .update(communityJoinRequests)
+          .set({
+            reviewedAt: new Date(),
+            reviewedByUserId: null,
+            status: 'cancelled',
+          })
+          .where(eq(communityJoinRequests.id, input.requestId))
+
+        return { ok: true }
       }),
     joinPublic: protectedProcedure
       .input(
@@ -1411,14 +1643,99 @@ export const appRouter = createTRPCRouter({
         const existingMembership = await getMembershipForUser(ctx, input.communityId, ctx.user.id)
 
         if (!existingMembership) {
-          await ctx.db.insert(member).values({
-            createdAt: new Date(),
-            id: randomUUID(),
+          await addMemberToCommunity({
+            db: ctx.db,
             organizationId: input.communityId,
             role: 'member',
             userId: ctx.user.id,
           })
         }
+
+        return { ok: true }
+      }),
+    reviewJoinRequest: protectedProcedure
+      .input(
+        z.object({
+          action: z.enum(['approve', 'reject']),
+          requestId: z.string().min(1),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [joinRequest] = await ctx.db
+          .select({
+            communityId: communityJoinRequests.communityId,
+            id: communityJoinRequests.id,
+            status: communityJoinRequests.status,
+            userId: communityJoinRequests.userId,
+          })
+          .from(communityJoinRequests)
+          .where(eq(communityJoinRequests.id, input.requestId))
+          .limit(1)
+
+        if (!joinRequest) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa solicitud.' })
+        }
+
+        const actorMembership = await getMembershipForUser(ctx, joinRequest.communityId, ctx.user.id)
+        const actorPrimaryRole = getPrimaryRole(actorMembership?.role)
+
+        if (!actorMembership || !canReviewJoinRequests(actorPrimaryRole)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes revisar solicitudes en esta comunidad.',
+          })
+        }
+
+        if (joinRequest.status !== 'pending') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Esta solicitud ya fue revisada.',
+          })
+        }
+
+        if (input.action === 'approve') {
+          if (await isUserBlockedInCommunity(ctx, joinRequest.communityId, joinRequest.userId)) {
+            throw new TRPCError({
+              code: 'FORBIDDEN',
+              message: 'Ese usuario está bloqueado y no puede entrar.',
+            })
+          }
+
+          const existingMembership = await getMembershipForUser(
+            ctx,
+            joinRequest.communityId,
+            joinRequest.userId,
+          )
+
+          if (!existingMembership) {
+            await addMemberToCommunity({
+              db: ctx.db,
+              organizationId: joinRequest.communityId,
+              role: 'member',
+              userId: joinRequest.userId,
+            })
+          }
+
+          await ctx.db
+            .update(communityJoinRequests)
+            .set({
+              reviewedAt: new Date(),
+              reviewedByUserId: ctx.user.id,
+              status: 'approved',
+            })
+            .where(eq(communityJoinRequests.id, joinRequest.id))
+
+          return { ok: true }
+        }
+
+        await ctx.db
+          .update(communityJoinRequests)
+          .set({
+            reviewedAt: new Date(),
+            reviewedByUserId: ctx.user.id,
+            status: 'rejected',
+          })
+          .where(eq(communityJoinRequests.id, joinRequest.id))
 
         return { ok: true }
       }),
@@ -1442,9 +1759,11 @@ export const appRouter = createTRPCRouter({
           })
         }
 
-        await ctx.db
-          .delete(member)
-          .where(and(eq(member.organizationId, input.communityId), eq(member.userId, ctx.user.id)))
+        await leaveCommunityMembership({
+          db: ctx.db,
+          organizationId: input.communityId,
+          userId: ctx.user.id,
+        })
 
         return { ok: true }
       }),
@@ -1475,6 +1794,23 @@ export const appRouter = createTRPCRouter({
       const now = new Date()
 
       return rows.filter((invite) => invite.expiresAt > now)
+    }),
+    myJoinRequests: protectedProcedure.query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          communityId: communities.organizationId,
+          communityKind: communities.kind,
+          communityName: communities.name,
+          id: communityJoinRequests.id,
+          requestedAt: communityJoinRequests.requestedAt,
+          reviewedAt: communityJoinRequests.reviewedAt,
+          status: communityJoinRequests.status,
+        })
+        .from(communityJoinRequests)
+        .innerJoin(communities, eq(communityJoinRequests.communityId, communities.organizationId))
+        .where(eq(communityJoinRequests.userId, ctx.user.id))
+        .orderBy(desc(communityJoinRequests.requestedAt))
+        .limit(20)
     }),
     myAccessLinkClaims: protectedProcedure.query(async ({ ctx }) => {
       return ctx.db
@@ -1725,15 +2061,14 @@ export const appRouter = createTRPCRouter({
           }
         }
 
-        await ctx.db.transaction(async (tx) => {
-          await tx.insert(member).values({
-            createdAt: new Date(),
-            id: randomUUID(),
-            organizationId: accessLink.communityId,
-            role: accessLink.defaultRole,
-            userId: ctx.user.id,
-          })
+        await addMemberToCommunity({
+          db: ctx.db,
+          organizationId: accessLink.communityId,
+          role: accessLink.defaultRole,
+          userId: ctx.user.id,
+        })
 
+        await ctx.db.transaction(async (tx) => {
           await tx.insert(communityAccessLinkClaims).values({
             accessLinkId: accessLink.id,
             communityId: accessLink.communityId,
@@ -1833,17 +2168,16 @@ export const appRouter = createTRPCRouter({
 
         const existingMembership = await getMembershipForUser(ctx, claim.communityId, claim.userId)
 
-        await ctx.db.transaction(async (tx) => {
-          if (!existingMembership) {
-            await tx.insert(member).values({
-              createdAt: new Date(),
-              id: randomUUID(),
-              organizationId: claim.communityId,
-              role: accessLink.defaultRole,
-              userId: claim.userId,
-            })
-          }
+        if (!existingMembership) {
+          await addMemberToCommunity({
+            db: ctx.db,
+            organizationId: claim.communityId,
+            role: accessLink.defaultRole,
+            userId: claim.userId,
+          })
+        }
 
+        await ctx.db.transaction(async (tx) => {
           await tx
             .update(communityAccessLinkClaims)
             .set({
@@ -2056,25 +2390,22 @@ export const appRouter = createTRPCRouter({
 
         const existingMembership = await getMembershipForUser(ctx, invite.communityId, ctx.user.id)
 
-        await ctx.db.transaction(async (tx) => {
-          if (!existingMembership) {
-            await tx.insert(member).values({
-              createdAt: new Date(),
-              id: randomUUID(),
-              organizationId: invite.communityId,
-              role: invite.role,
-              userId: ctx.user.id,
-            })
-          }
+        if (!existingMembership) {
+          await addMemberToCommunity({
+            db: ctx.db,
+            organizationId: invite.communityId,
+            role: invite.role,
+            userId: ctx.user.id,
+          })
+        }
 
-          await tx
-            .update(communityUserInvites)
-            .set({
-              status: 'accepted',
-              updatedAt: new Date(),
-            })
-            .where(eq(communityUserInvites.id, input.inviteId))
-        })
+        await ctx.db
+          .update(communityUserInvites)
+          .set({
+            status: 'accepted',
+            updatedAt: new Date(),
+          })
+          .where(eq(communityUserInvites.id, input.inviteId))
 
         return { ok: true }
       }),
@@ -2189,12 +2520,12 @@ export const appRouter = createTRPCRouter({
           })
         }
 
-        await ctx.db
-          .update(member)
-          .set({
-            role: input.role,
-          })
-          .where(eq(member.id, targetMembership.id))
+        await updateCommunityMemberRole({
+          db: ctx.db,
+          memberId: targetMembership.id,
+          organizationId: input.communityId,
+          role: input.role,
+        })
 
         return { ok: true }
       }),
@@ -2227,7 +2558,11 @@ export const appRouter = createTRPCRouter({
           })
         }
 
-        await ctx.db.delete(member).where(eq(member.id, targetMembership.id))
+        await removeMemberFromCommunity({
+          db: ctx.db,
+          memberId: targetMembership.id,
+          organizationId: input.communityId,
+        })
 
         return { ok: true }
       }),
@@ -2281,27 +2616,27 @@ export const appRouter = createTRPCRouter({
           })
         }
 
-        await ctx.db.transaction(async (tx) => {
-          await tx
-            .delete(member)
-            .where(
-              and(eq(member.organizationId, input.communityId), eq(member.userId, input.userId)),
-            )
+        if (targetMembership) {
+          await removeMemberFromCommunity({
+            db: ctx.db,
+            memberId: targetMembership.id,
+            organizationId: input.communityId,
+          })
+        }
 
-          await tx
-            .update(communityUserInvites)
-            .set({
-              status: 'cancelled',
-              updatedAt: new Date(),
-            })
-            .where(
-              and(
-                eq(communityUserInvites.communityId, input.communityId),
-                eq(communityUserInvites.invitedUserId, input.userId),
-                eq(communityUserInvites.status, 'pending'),
-              ),
-            )
-        })
+        await ctx.db
+          .update(communityUserInvites)
+          .set({
+            status: 'cancelled',
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(communityUserInvites.communityId, input.communityId),
+              eq(communityUserInvites.invitedUserId, input.userId),
+              eq(communityUserInvites.status, 'pending'),
+            ),
+          )
 
         return { ok: true }
       }),
