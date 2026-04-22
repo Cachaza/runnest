@@ -23,10 +23,13 @@ import {
   descriptionForMode,
   emptyMeetupsCopy,
   labelForCommunityKind,
+  labelForMeetupOrganizer,
   labelForMeetupStyle,
   labelForMode,
   labelForVisibility,
   lowerLabelForCommunityKind,
+  managedMemberRunsBody,
+  managedMemberRunsTitle,
   modeCommunityCardCopy,
 } from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
@@ -140,6 +143,19 @@ export default function CrewDetailScreen() {
     },
     onError: (error) => {
       Alert.alert('No se pudo actualizar RSVP', error.message);
+    },
+  });
+  const cancelMeetupMutation = trpc.meetups.cancel.useMutation({
+    onSuccess: async () => {
+      if (communityId) {
+        await utils.communities.byId.invalidate({ id: communityId });
+      }
+
+      await utils.meetups.upcomingPublic.invalidate();
+      await utils.profile.publicByUsername.invalidate();
+    },
+    onError: (error) => {
+      Alert.alert('No se pudo cancelar la quedada', error.message);
     },
   });
   const joinMutation = trpc.communities.joinPublic.useMutation({
@@ -314,6 +330,7 @@ export default function CrewDetailScreen() {
     [community?.viewerMembershipRole],
   );
   const isMutatingRsvp = rsvpMutation.isPending || unrsvpMutation.isPending;
+  const isMutatingMeetupManage = cancelMeetupMutation.isPending;
   const isMutatingMembership = joinMutation.isPending || leaveMutation.isPending;
   const isMutatingStaff =
     inviteMutation.isPending ||
@@ -342,6 +359,14 @@ export default function CrewDetailScreen() {
   const accessLinksCount = communityQuery.data?.accessLinks.length ?? 0;
   const upcomingMeetupsCount = communityQuery.data?.upcomingMeetups.length ?? 0;
   const membersCount = communityQuery.data?.members.length ?? 0;
+  const runStaffPreview =
+    communityQuery.data?.members
+      .filter((memberItem) =>
+        memberItem.primaryRole === 'owner' ||
+        memberItem.primaryRole === 'admin' ||
+        memberItem.primaryRole === 'host',
+      )
+      .slice(0, 4) ?? [];
 
   const manageBadge = pendingJoinRequestsCount + pendingAccessClaimsCount;
   const isStaff = Boolean(community?.viewerCanInviteMembers);
@@ -369,6 +394,10 @@ export default function CrewDetailScreen() {
     }
 
     await rsvpMutation.mutateAsync({ meetupId });
+  }
+
+  async function handleCancelMeetup(meetupId: number) {
+    await cancelMeetupMutation.mutateAsync({ meetupId });
   }
 
   async function handleMembershipAction() {
@@ -628,9 +657,12 @@ export default function CrewDetailScreen() {
           {previewMeetups.map((meetup) => (
             <MeetupRow
               key={meetup.id}
+              communityId={communityId}
               disabled={isMutatingRsvp}
+              manageDisabled={isMutatingMeetupManage}
               meetup={meetup}
               mode={community.mode}
+              onCancel={handleCancelMeetup}
               onRsvp={handleMeetupAction}
             />
           ))}
@@ -675,6 +707,29 @@ export default function CrewDetailScreen() {
             </AppButton>
           ) : null}
 
+          {community.mode === 'managed' && isMember && !community.viewerCanCreateRuns ? (
+            <AppCard>
+              <Text className="text-[13px] font-black uppercase tracking-[0.6px] text-muted-text">
+                {managedMemberRunsTitle()}
+              </Text>
+              <Text className="mt-2 text-[18px] font-black leading-6 text-text">
+                El staff publica las quedadas oficiales.
+              </Text>
+              <Text className="mt-1 text-[14px] leading-[21px] text-muted-text">
+                {managedMemberRunsBody(entityLabelLower)}
+              </Text>
+              {runStaffPreview.length > 0 ? (
+                <View className="mt-2 flex-row flex-wrap gap-2">
+                  {runStaffPreview.map((memberItem) => (
+                    <Chip key={memberItem.userId} tone="warm">
+                      {roleLabel(memberItem.primaryRole)} · {memberItem.username ? `@${memberItem.username}` : memberItem.name}
+                    </Chip>
+                  ))}
+                </View>
+              ) : null}
+            </AppCard>
+          ) : null}
+
           {upcomingMeetupsCount === 0 ? (
             <EmptyState
               title="Sin quedadas futuras."
@@ -685,9 +740,12 @@ export default function CrewDetailScreen() {
           {communityQuery.data?.upcomingMeetups.map((meetup) => (
             <MeetupRow
               key={meetup.id}
+              communityId={communityId}
               disabled={isMutatingRsvp}
+              manageDisabled={isMutatingMeetupManage}
               meetup={meetup}
               mode={community.mode}
+              onCancel={handleCancelMeetup}
               onRsvp={handleMeetupAction}
             />
           ))}
@@ -1187,21 +1245,72 @@ export default function CrewDetailScreen() {
 }
 
 type MeetupRowProps = {
+  communityId: string | null;
   disabled: boolean;
+  manageDisabled: boolean;
   meetup: {
+    attendees: Array<{
+      name: string;
+      userId: string;
+      username: string | null;
+    }>;
+    createdByName?: string | null;
+    createdByPrimaryRole?: string | null;
+    createdByUsername?: string | null;
     id: number;
     title: string;
     startsAt: string | Date;
     distanceKm: number;
     location: string;
     rsvpCount: number;
+    viewerCanManage?: boolean;
     viewerIsGoing: boolean;
   };
   mode: 'collaborative' | 'managed';
+  onCancel: (meetupId: number) => void;
   onRsvp: (meetupId: number, viewerIsGoing: boolean) => void;
 };
 
-function MeetupRow({ disabled, meetup, mode, onRsvp }: MeetupRowProps) {
+function MeetupRow({
+  communityId,
+  disabled,
+  manageDisabled,
+  meetup,
+  mode,
+  onCancel,
+  onRsvp,
+}: MeetupRowProps) {
+  const [showAttendees, setShowAttendees] = useState(false);
+  const organizerName = meetup.createdByUsername ? `@${meetup.createdByUsername}` : meetup.createdByName ?? 'organización';
+  const organizerRole =
+    meetup.createdByPrimaryRole && meetup.createdByPrimaryRole !== 'member'
+      ? roleLabel(meetup.createdByPrimaryRole)
+      : null;
+  const canManage = Boolean(meetup.viewerCanManage);
+
+  function handleEdit() {
+    if (!communityId) {
+      return;
+    }
+
+    router.push({ pathname: '/modal', params: { communityId, meetupId: String(meetup.id) } } as any);
+  }
+
+  function confirmCancel() {
+    Alert.alert(
+      'Cancelar quedada',
+      'Se borrará la quedada y sus apuntados actuales. Esta acción no se puede deshacer.',
+      [
+        { text: 'Seguir editando', style: 'cancel' },
+        {
+          text: 'Cancelar quedada',
+          style: 'destructive',
+          onPress: () => onCancel(meetup.id),
+        },
+      ],
+    );
+  }
+
   return (
     <AppCard>
       <View className="flex-row items-start gap-3">
@@ -1220,6 +1329,60 @@ function MeetupRow({ disabled, meetup, mode, onRsvp }: MeetupRowProps) {
           <Text className="text-[13px] leading-[19px] text-muted-text" numberOfLines={1}>
             {meetup.distanceKm} km · {meetup.location}
           </Text>
+          <Text className="text-[12px] font-bold leading-[18px] text-muted-text" numberOfLines={1}>
+            {labelForMeetupOrganizer(mode)} {organizerName}
+            {organizerRole ? ` · ${organizerRole}` : ''}
+          </Text>
+          {canManage ? (
+            <View className="mt-1 flex-row flex-wrap gap-2">
+              <Pressable
+                disabled={manageDisabled}
+                onPress={handleEdit}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                className="rounded-full bg-chip px-3 py-1.5">
+                <Text className="text-[12px] font-black text-text">Editar</Text>
+              </Pressable>
+              <Pressable
+                disabled={manageDisabled}
+                onPress={() => setShowAttendees((current) => !current)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                className="rounded-full bg-chip px-3 py-1.5">
+                <Text className="text-[12px] font-black text-text">
+                  {showAttendees ? 'Ocultar quién va' : `Ver quién va · ${meetup.attendees.length}`}
+                </Text>
+              </Pressable>
+              <Pressable
+                disabled={manageDisabled}
+                onPress={confirmCancel}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                className="rounded-full bg-danger-surface px-3 py-1.5">
+                <Text className="text-[12px] font-black text-danger">Cancelar</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {canManage && showAttendees ? (
+            <View className="mt-2 gap-2 rounded-2xl bg-background px-3 py-3">
+              <Text className="text-[12px] font-black uppercase tracking-[0.5px] text-muted-text">
+                Quién va · {meetup.attendees.length}
+              </Text>
+              {meetup.attendees.length === 0 ? (
+                <Text className="text-[13px] leading-[19px] text-muted-text">
+                  Todavía no hay gente apuntada.
+                </Text>
+              ) : (
+                meetup.attendees.map((attendee) => (
+                  <View key={attendee.userId} className="flex-row items-center justify-between gap-3">
+                    <Text className="flex-1 text-[14px] font-bold text-text" numberOfLines={1}>
+                      {attendee.username ? `@${attendee.username}` : attendee.name}
+                    </Text>
+                    <Text className="text-[12px] font-bold text-muted-text" numberOfLines={1}>
+                      {attendee.username ? attendee.name : 'Runner'}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          ) : null}
           <View className="mt-0.5 flex-row items-center justify-between gap-3">
             <Text className="text-[12px] font-bold text-muted-text">
               {meetup.rsvpCount} apuntados

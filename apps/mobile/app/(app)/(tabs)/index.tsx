@@ -6,7 +6,12 @@ import { useAppTheme } from '@/components/ThemeContext';
 import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
-import { labelForCommunityKind } from '@/lib/community-labels';
+import {
+  labelForCommunityKind,
+  labelForMeetupOrganizer,
+  labelForMeetupStyle,
+  labelForMode,
+} from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
 function formatMeetupLabel(startsAt: string | Date) {
@@ -44,6 +49,9 @@ export default function TodayScreen() {
   const nextMeetup = meetupsQuery.data?.[0];
   const recommendedCommunities = recommendedQuery.data?.slice(0, 3) ?? [];
   const nextMeetupDistance = formatViewerDistance(nextMeetup?.distanceFromViewerKm);
+  const nextMeetupOrganizer = nextMeetup?.createdByUsername
+    ? `@${nextMeetup.createdByUsername}`
+    : nextMeetup?.createdByName ?? 'organización';
   const { onRefresh, refreshing } = usePullToRefresh(async () => {
     await Promise.all([
       meetupsQuery.refetch(),
@@ -113,8 +121,17 @@ export default function TodayScreen() {
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
               {formatMeetupLabel(nextMeetup.startsAt)} · {nextMeetup.communityName}
             </Text>
+            <View className="flex-row flex-wrap gap-2">
+              <Chip tone={nextMeetup.communityMode === 'managed' ? 'warm' : 'cool'}>
+                {labelForMeetupStyle(nextMeetup.communityMode)}
+              </Chip>
+              <Chip tone="neutral">{labelForMode(nextMeetup.communityMode)}</Chip>
+            </View>
             <Text className="text-[15px] leading-[23px] text-hero-text-muted">
               {nextMeetup.distanceKm} km · {nextMeetup.location} · {nextMeetup.rsvpCount} apuntados
+            </Text>
+            <Text className="text-[15px] leading-[23px] text-hero-text-muted">
+              {labelForMeetupOrganizer(nextMeetup.communityMode)} {nextMeetupOrganizer}
             </Text>
             {nextMeetupDistance ? (
               <Text className="text-[15px] leading-[23px] text-hero-text-muted">{nextMeetupDistance}</Text>

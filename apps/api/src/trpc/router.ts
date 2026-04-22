@@ -53,6 +53,12 @@ const communityModeSchema = z.enum(['collaborative', 'managed'])
 const communityVisibilitySchema = z.enum(['public', 'private'])
 const meetupVisibilitySchema = z.enum(['public', 'members'])
 const communityRoleSchema = z.enum(['owner', 'admin', 'moderator', 'host', 'member'])
+const meetupUpsertSchema = z.object({
+  distanceKm: z.number().int().positive(),
+  location: z.string().min(2),
+  startsAt: z.string().datetime(),
+  title: z.string().min(2),
+})
 
 function listFromCommaValue(value: string | null | undefined) {
   return value
@@ -183,6 +189,18 @@ function canOrganizeCommunityMeetup(
   }
 
   return hasAnyRole(role, ['owner', 'admin', 'host'])
+}
+
+function canManageCommunityMeetup(
+  actorRole: CommunityRoleName | null,
+  actorUserId: string,
+  meetupCreatedByUserId: string | null | undefined,
+) {
+  if (actorRole === 'owner' || actorRole === 'admin' || actorRole === 'host') {
+    return true
+  }
+
+  return meetupCreatedByUserId === actorUserId
 }
 
 function canViewerSeeMeetup(
@@ -1051,6 +1069,10 @@ export const appRouter = createTRPCRouter({
 
         const upcomingMeetups = await ctx.db
           .select({
+            createdByName: user.name,
+            createdByUserId: meetups.createdByUserId,
+            createdByRole: member.role,
+            createdByUsername: profiles.username,
             id: meetups.id,
             communityId: communities.organizationId,
             communityKind: communities.kind,
@@ -1063,6 +1085,12 @@ export const appRouter = createTRPCRouter({
           })
           .from(meetups)
           .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .leftJoin(user, eq(meetups.createdByUserId, user.id))
+          .leftJoin(profiles, eq(meetups.createdByUserId, profiles.userId))
+          .leftJoin(
+            member,
+            and(eq(member.organizationId, communities.organizationId), eq(member.userId, meetups.createdByUserId)),
+          )
           .where(and(eq(meetups.communityId, input.id), gte(meetups.startsAt, new Date())))
           .orderBy(asc(meetups.startsAt))
 
@@ -1078,6 +1106,20 @@ export const appRouter = createTRPCRouter({
                   userId: meetupRsvps.userId,
                 })
                 .from(meetupRsvps)
+                .where(inArray(meetupRsvps.meetupId, meetupIds))
+            : []
+        const attendeeRows =
+          meetupIds.length > 0 && viewerMembership
+            ? await ctx.db
+                .select({
+                  meetupId: meetupRsvps.meetupId,
+                  name: user.name,
+                  userId: meetupRsvps.userId,
+                  username: profiles.username,
+                })
+                .from(meetupRsvps)
+                .innerJoin(user, eq(meetupRsvps.userId, user.id))
+                .leftJoin(profiles, eq(meetupRsvps.userId, profiles.userId))
                 .where(inArray(meetupRsvps.meetupId, meetupIds))
             : []
 
@@ -1362,10 +1404,25 @@ export const appRouter = createTRPCRouter({
           recentAccessClaims,
           upcomingMeetups: visibleMeetups.map((meetup) => {
             const meetupRsvpRows = rsvpRows.filter((rsvp) => rsvp.meetupId === meetup.id)
+            const viewerCanManageMeetup =
+              ctx.user
+                ? canManageCommunityMeetup(viewerPrimaryRole, ctx.user.id, meetup.createdByUserId)
+                : false
 
             return {
               ...meetup,
+              attendees: viewerCanManageMeetup
+                ? attendeeRows
+                    .filter((attendee) => attendee.meetupId === meetup.id)
+                    .map((attendee) => ({
+                      name: attendee.name,
+                      userId: attendee.userId,
+                      username: attendee.username,
+                    }))
+                : [],
+              createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
               rsvpCount: meetupRsvpRows.length,
+              viewerCanManage: viewerCanManageMeetup,
               viewerIsGoing: ctx.user
                 ? meetupRsvpRows.some((rsvp) => rsvp.userId === ctx.user?.id)
                 : false,
@@ -2680,6 +2737,9 @@ export const appRouter = createTRPCRouter({
 
       const upcomingMeetups = await ctx.db
         .select({
+          createdByName: user.name,
+          createdByRole: member.role,
+          createdByUsername: profiles.username,
           id: meetups.id,
           communityId: communities.organizationId,
           communityKind: communities.kind,
@@ -2697,6 +2757,12 @@ export const appRouter = createTRPCRouter({
         })
         .from(meetups)
         .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+        .leftJoin(user, eq(meetups.createdByUserId, user.id))
+        .leftJoin(profiles, eq(meetups.createdByUserId, profiles.userId))
+        .leftJoin(
+          member,
+          and(eq(member.organizationId, communities.organizationId), eq(member.userId, meetups.createdByUserId)),
+        )
         .where(and(eq(communities.visibility, 'public'), eq(meetups.visibility, 'public'), gte(meetups.startsAt, new Date())))
         .orderBy(asc(meetups.startsAt))
 
@@ -2735,6 +2801,9 @@ export const appRouter = createTRPCRouter({
               : null
 
           return {
+            createdByName: meetup.createdByName,
+            createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
+            createdByUsername: meetup.createdByUsername,
             communityId: meetup.communityId,
             communityKind: meetup.communityKind,
             communityMode: meetup.communityMode,
@@ -2767,15 +2836,51 @@ export const appRouter = createTRPCRouter({
           return new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime()
         })
     }),
+    editableById: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const [meetup] = await ctx.db
+          .select({
+            communityId: communities.organizationId,
+            communityMode: communities.mode,
+            communityName: communities.name,
+            createdByUserId: meetups.createdByUserId,
+            distanceKm: meetups.distanceKm,
+            id: meetups.id,
+            location: meetups.location,
+            startsAt: meetups.startsAt,
+            title: meetups.title,
+          })
+          .from(meetups)
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .where(eq(meetups.id, input.meetupId))
+          .limit(1)
+
+        if (!meetup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+        }
+
+        const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+        const actorRole = getPrimaryRole(membership?.role)
+
+        if (!membership || !canManageCommunityMeetup(actorRole, ctx.user.id, meetup.createdByUserId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes editar esta quedada.',
+          })
+        }
+
+        return meetup
+      }),
     create: protectedProcedure
       .input(
         z.object({
           communityId: z.string().min(1),
-          distanceKm: z.number().int().positive(),
-          location: z.string().min(2),
-          startsAt: z.string().datetime(),
-          title: z.string().min(2),
-        }),
+        }).extend(meetupUpsertSchema.shape),
       )
       .mutation(async ({ ctx, input }) => {
         const community = await ctx.db.query.communities.findFirst({
@@ -2824,6 +2929,109 @@ export const appRouter = createTRPCRouter({
           .returning()
 
         return createdMeetup
+      }),
+    update: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+        }).extend(meetupUpsertSchema.shape),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [meetup] = await ctx.db
+          .select({
+            communityCityLat: communities.cityLat,
+            communityCityLng: communities.cityLng,
+            communityId: communities.organizationId,
+            communityMode: communities.mode,
+            communityVisibility: communities.visibility,
+            createdByUserId: meetups.createdByUserId,
+            city: communities.city,
+            cityProvince: communities.cityProvince,
+            meetupId: meetups.id,
+          })
+          .from(meetups)
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .where(eq(meetups.id, input.meetupId))
+          .limit(1)
+
+        if (!meetup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, meetup.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes gestionar quedadas en esta comunidad.',
+          })
+        }
+
+        const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+        const actorRole = getPrimaryRole(membership?.role)
+
+        if (!membership || !canManageCommunityMeetup(actorRole, ctx.user.id, meetup.createdByUserId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes editar esta quedada.',
+          })
+        }
+
+        const geocodedLocation = await geocodeMeetupLocation({
+          city: meetup.city,
+          location: input.location,
+          province: meetup.cityProvince,
+        })
+
+        const [updatedMeetup] = await ctx.db
+          .update(meetups)
+          .set({
+            distanceKm: input.distanceKm,
+            location: input.location,
+            locationLat: geocodedLocation?.latitude ?? meetup.communityCityLat ?? null,
+            locationLng: geocodedLocation?.longitude ?? meetup.communityCityLng ?? null,
+            startsAt: new Date(input.startsAt),
+            title: input.title,
+            visibility: meetup.communityVisibility === 'private' ? 'members' : 'public',
+          })
+          .where(eq(meetups.id, input.meetupId))
+          .returning()
+
+        return updatedMeetup
+      }),
+    cancel: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [meetup] = await ctx.db
+          .select({
+            communityId: communities.organizationId,
+            createdByUserId: meetups.createdByUserId,
+            meetupId: meetups.id,
+          })
+          .from(meetups)
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .where(eq(meetups.id, input.meetupId))
+          .limit(1)
+
+        if (!meetup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+        }
+
+        const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+        const actorRole = getPrimaryRole(membership?.role)
+
+        if (!membership || !canManageCommunityMeetup(actorRole, ctx.user.id, meetup.createdByUserId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes cancelar esta quedada.',
+          })
+        }
+
+        await ctx.db.delete(meetups).where(eq(meetups.id, input.meetupId))
+
+        return { ok: true }
       }),
     rsvp: protectedProcedure
       .input(

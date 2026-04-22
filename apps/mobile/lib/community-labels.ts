@@ -46,6 +46,10 @@ export function labelForMeetupStyle(mode?: CommunityMode | null) {
   return mode === 'collaborative' ? 'Abierto a miembros' : 'Oficial'
 }
 
+export function labelForMeetupOrganizer(mode?: CommunityMode | null) {
+  return mode === 'collaborative' ? 'Propuesta de' : 'Publicado por'
+}
+
 export function createMeetupCtaLabel(mode?: CommunityMode | null) {
   return mode === 'collaborative' ? '+ Proponer quedada' : '+ Publicar quedada'
 }
@@ -76,6 +80,14 @@ export function modeCommunityCardCopy(mode?: CommunityMode | null) {
   }
 
   return 'Aquí el staff publica runs oficiales y cuida mejor qué se mueve dentro de la comunidad.'
+}
+
+export function managedMemberRunsTitle() {
+  return 'Calendario oficial del staff'
+}
+
+export function managedMemberRunsBody(entityLabelLower: string) {
+  return `Como miembro de esta ${entityLabelLower}, aquí verás las quedadas oficiales del staff y podrás apuntarte cuando encajen contigo.`
 }
 
 export function labelForVisibility(visibility?: CommunityVisibility | null) {

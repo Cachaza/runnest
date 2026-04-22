@@ -24,6 +24,7 @@ import {
   CommunityVisibility,
   descriptionForMode,
   labelForCommunityKind,
+  labelForMeetupOrganizer,
   labelForMeetupStyle,
   labelForMode,
   labelForVisibility,
@@ -352,6 +353,9 @@ export default function CommunitiesScreen() {
             <HorizontalScroller>
               {meetupsQuery.data.map((meetup) => {
                 const viewerDistance = formatViewerDistance(meetup.distanceFromViewerKm);
+                const organizerName = meetup.createdByUsername
+                  ? `@${meetup.createdByUsername}`
+                  : meetup.createdByName ?? 'organización';
 
                 return (
                   <View
@@ -386,6 +390,9 @@ export default function CommunitiesScreen() {
                     </View>
                     <Text style={[styles.meetupNote, { color: colors.heroTextMuted }]} numberOfLines={1}>
                       {meetup.distanceKm} km{viewerDistance ? ` · ${viewerDistance} de ti` : ''}
+                    </Text>
+                    <Text style={[styles.meetupNote, { color: colors.heroTextMuted }]} numberOfLines={1}>
+                      {labelForMeetupOrganizer(meetup.communityMode)} {organizerName}
                     </Text>
                     <View style={styles.meetupFooter}>
                       <Text style={[styles.rsvpMeta, { color: colors.heroTextMuted }]}>
