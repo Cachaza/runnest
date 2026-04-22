@@ -233,12 +233,14 @@ const styles = StyleSheet.create({
     width: '88%',
   },
   tabSlot: {
+    alignItems: 'center',
     flex: 1,
   },
   tabItem: {
     alignItems: 'center',
-    borderRadius: 999,
     alignSelf: 'stretch',
+    borderRadius: 999,
+    flexDirection: 'column',
     gap: 4,
     justifyContent: 'center',
     minHeight: 62,
@@ -250,11 +252,13 @@ const styles = StyleSheet.create({
   },
   iconCircle: {
     alignItems: 'center',
+    alignSelf: 'center',
     height: 24,
     justifyContent: 'center',
     width: 24,
   },
   tabLabel: {
+    alignSelf: 'center',
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.1,
