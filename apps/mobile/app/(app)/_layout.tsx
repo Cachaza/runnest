@@ -37,6 +37,10 @@ export default function AppLayout() {
         options={{ presentation: 'modal', title: 'Ajustes' }}
       />
       <Stack.Screen
+        name="profile-edit"
+        options={{ presentation: 'modal', title: 'Editar perfil' }}
+      />
+      <Stack.Screen
         name="runner/[username]"
         options={{ title: 'Runner' }}
       />
