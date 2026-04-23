@@ -14,5 +14,8 @@
   - authenticated users with profile go to `(app)`
 - Do not reintroduce auth forms inside tab screens or other authenticated routes.
 - When changing navigation, keep modal/detail routes inside `(app)/_layout.tsx` and keep tabs inside `(app)/(tabs)/_layout.tsx`.
-- For the current org-backed community model, product rules, and UX direction, use `docs/community-vision.md` and `docs/mobile-membership-and-invites.md` as the canonical references.
+- For the current roadmap and product prioritization, use `docs/vision.md` as the operative source of truth.
+- Use `docs/community-vision.md` as the long-term model and architecture reference, especially for the underlying `community` entity and permission direction beyond the current 3-month focus.
+- Use `docs/mobile-membership-and-invites.md` as the reference for the org-backed membership and invite infrastructure that already exists in the app.
+- During the current cycle, keep the existing auth/onboarding routing gate intact unless the user explicitly asks to revisit it. The current product shift does not authorize changing `onboarding.tsx` or the profile-completion gate by default.
 - If future repo work introduces a public landing site or an internal admin app, use `docs/monorepo-future-structure.md` as the reference for app boundaries and naming.

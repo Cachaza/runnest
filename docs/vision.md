@@ -7,6 +7,8 @@ Sirve como filtro de decisiones: cualquier feature, refactor o discusión técni
 
 Si algo no contribuye a este objetivo, no se construye ahora, aunque esté en otros docs del proyecto.
 
+> Nota operativa actual: aunque este documento marca como deseable un onboarding mucho más ligero, en la iteración en curso no se va a tocar `onboarding.tsx` ni el gate actual de perfil. El trabajo inmediato se concentra en coordinación de grupo, RSVP, invitaciones, recuperación de contraseña y push.
+
 ## Visión a largo plazo (no es el foco de los próximos 3 meses)
 
 A largo plazo, AppRunners quiere resolver dos problemas reales:

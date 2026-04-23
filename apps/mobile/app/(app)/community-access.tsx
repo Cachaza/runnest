@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Text, TextInput, View } from 'react-native';
+import { Alert, Text, TextInput } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 import { AppButton, AppCard, ScreenScroll } from '@/components/ui/AppUI';
@@ -24,7 +24,7 @@ export default function CommunityAccessScreen() {
 
       Alert.alert(
         'Solicitud enviada',
-        `Tu acceso a ${result.communityName} queda pendiente de aprobación del staff.`,
+        `El equipo de ${result.communityName} tiene que aprobarte. Te avisamos en cuanto lo revisen.`,
       );
       router.replace('/communities');
     },
@@ -43,7 +43,7 @@ export default function CommunityAccessScreen() {
     const trimmedCode = code.trim();
 
     if (!trimmedCode) {
-      Alert.alert('Falta el código', 'Pega o escribe un código válido de acceso.');
+      Alert.alert('Falta el código', 'Pega o escribe el código que te compartieron.');
       return;
     }
 
@@ -54,10 +54,9 @@ export default function CommunityAccessScreen() {
     <ScreenScroll>
       <AppCard>
         <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Entrar con código</Text>
-        <Text className="text-[30px] font-black leading-9 text-text">Canjea un access link desde móvil.</Text>
+        <Text className="text-[30px] font-black leading-9 text-text">Pega el código que te pasaron.</Text>
         <Text className="text-[15px] leading-[23px] text-muted-text">
-          Pega el código que te haya compartido una community, club o creator. Si el link requiere aprobación,
-          la solicitud se enviará al staff.
+          Escribe o pega el código que alguien del grupo te haya compartido. Si hace falta aprobación, te avisamos cuando te acepten.
         </Text>
 
         <TextInput
@@ -81,17 +80,9 @@ export default function CommunityAccessScreen() {
         />
       </AppCard>
 
-      <View className="gap-3">
-        <AppButton disabled={redeemMutation.isPending} onPress={handleRedeem}>
-          {redeemMutation.isPending ? 'Validando...' : 'Usar código'}
-        </AppButton>
-        <AppButton
-          disabled={redeemMutation.isPending}
-          onPress={() => router.back()}
-          tone="secondary">
-          Cancelar
-        </AppButton>
-      </View>
+      <AppButton disabled={redeemMutation.isPending} onPress={handleRedeem}>
+        {redeemMutation.isPending ? 'Validando…' : 'Entrar con este código'}
+      </AppButton>
     </ScreenScroll>
   );
 }

@@ -4,23 +4,23 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useAppTheme } from '@/components/ThemeContext';
 
-const HERO_CHIPS = ['Crews reales', 'Tu ciudad', 'Ritmo compatible'];
+const HERO_CHIPS = ['Salidas', 'Apuntes', 'Sin WhatsApp'];
 
 const FEATURES = [
   {
     icon: 'users',
-    title: 'Tu crew',
-    body: 'Encuentra runners con tu ritmo y objetivos cerca de ti.',
+    title: 'Tu grupo',
+    body: 'Organiza salidas con la gente con la que ya corres. Sin pasar por WhatsApp.',
   },
   {
     icon: 'calendar-day',
     title: 'Quedadas',
-    body: 'Apúntate a entrenos y carreras organizadas por gente local.',
+    body: 'Crea una salida, mira quién se apunta y listo. Desde el móvil en dos segundos.',
   },
   {
-    icon: 'compass',
-    title: 'Recomendaciones',
-    body: 'Rutas, crews y compañeros elegidos para ti cada semana.',
+    icon: 'share-nodes',
+    title: 'Códigos',
+    body: 'Comparte un código. Cualquiera del grupo entra directo, sin pedir permiso.',
   },
 ] as const;
 
@@ -39,10 +39,10 @@ export default function LandingScreen() {
             AppRunners
           </Text>
           <Text className="mt-5 text-[42px] font-black leading-[46px] text-hero-text">
-            Encuentra{'\n'}tu crew de{'\n'}running.
+            Coordina{'\n'}las quedadas{'\n'}del grupo.
           </Text>
           <Text className="mt-3 text-[16px] leading-[25px] text-hero-text-muted">
-            Conecta con runners locales. Queda a correr y construye hábito en compañía.
+            Dónde quedamos, a qué hora y quién viene. Todo aquí en la app.
           </Text>
           <View className="mt-5 flex-row flex-wrap gap-2">
             {HERO_CHIPS.map((chip) => (
@@ -80,7 +80,7 @@ export default function LandingScreen() {
             onPress={() => router.push('/(auth)/sign-up')}
             style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
             className="items-center rounded-[20px] bg-tint py-[18px]">
-            <Text className="text-[16px] font-black text-on-tint">Crear cuenta gratis</Text>
+            <Text className="text-[16px] font-black text-on-tint">Empezar</Text>
           </Pressable>
 
           <View className="flex-row justify-center gap-1.5">

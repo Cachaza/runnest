@@ -54,6 +54,22 @@ app.get('/health', async (c) => {
   })
 })
 
+app.get('/auth/reset-password', (c) => {
+  const token = c.req.query('token')
+  const error = c.req.query('error')
+  const redirectUrl = new URL(`${env.mobileScheme}://reset-password`)
+
+  if (token) {
+    redirectUrl.searchParams.set('token', token)
+  }
+
+  if (error) {
+    redirectUrl.searchParams.set('error', error)
+  }
+
+  return c.redirect(redirectUrl.toString(), 302)
+})
+
 app.use(
   '/trpc/*',
   trpcServer({

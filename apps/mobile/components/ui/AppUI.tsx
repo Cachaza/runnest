@@ -12,6 +12,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/ThemeContext';
 
@@ -68,14 +69,15 @@ export function ScreenScroll({
   ...props
 }: ScreenScrollProps) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <ScrollView
       alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControl)}
       className="flex-1 bg-background"
       style={style}
-      contentContainerClassName="gap-4 px-[18px] pt-[18px] pb-[140px]"
-      contentContainerStyle={contentStyle}
+      contentContainerClassName="gap-4 px-[18px] pb-[140px]"
+      contentContainerStyle={[{ paddingTop: Math.max(insets.top + 8, 18) }, contentStyle]}
       refreshControl={
         refreshControl ??
         (onRefresh ? (

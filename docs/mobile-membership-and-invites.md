@@ -1,5 +1,7 @@
 # Mobile Membership And Invites
 
+> Nota operativa del ciclo actual: esta capa sigue siendo válida como infraestructura. En esta iteración solo se cierra QA, se mantiene `community-access` por código y no se amplían invite deep links ni direct community links.
+
 ## Summary
 
 AppRunners should keep Better Auth `organization` as the source of truth for:

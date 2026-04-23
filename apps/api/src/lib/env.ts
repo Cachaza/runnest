@@ -9,6 +9,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url().default('http://localhost:8787'),
   CORS_ORIGIN: z.string().default('http://localhost:8081'),
   MOBILE_SCHEME: z.string().min(1).default('apprunners'),
+  EMAIL_FROM: z.string().email().optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
 })
 
 const parsedEnv = envSchema.parse(process.env)
@@ -20,4 +22,6 @@ export const env = {
   betterAuthUrl: parsedEnv.BETTER_AUTH_URL,
   corsOrigin: parsedEnv.CORS_ORIGIN,
   mobileScheme: parsedEnv.MOBILE_SCHEME,
+  emailFrom: parsedEnv.EMAIL_FROM,
+  resendApiKey: parsedEnv.RESEND_API_KEY,
 }

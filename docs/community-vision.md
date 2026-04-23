@@ -1,5 +1,7 @@
 # Community Vision
 
+> Nota operativa: este documento sigue definiendo el modelo conceptual de largo plazo. Durante el ciclo actual de validación con un grupo real, toda la capa `managed` / creator / monetización queda dormida en la UI principal salvo donde ya exista como infraestructura o compatibilidad interna.
+
 ## Summary
 
 AppRunners should stop thinking of `crew` as the final product concept and treat it as a transitional label.

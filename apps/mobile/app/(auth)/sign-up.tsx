@@ -21,7 +21,7 @@ import { useAppTheme } from '@/components/ThemeContext';
 import { authClient } from '@/lib/auth-client';
 import { queryClient } from '@/lib/trpc';
 
-const HERO_CHIPS = ['Crews reales', 'Tu ciudad', 'Ritmo compatible'];
+const HERO_CHIPS = ['Tu grupo', 'Quedadas', 'Quién viene'];
 
 export default function SignUpScreen() {
   const { colors } = useAppTheme();
@@ -95,10 +95,10 @@ export default function SignUpScreen() {
             AppRunners
           </Text>
           <Text className="mt-4 text-[34px] font-black leading-[38px] text-hero-text">
-            Empieza con{'\n'}tu crew.
+            Empieza en{'\n'}dos minutos.
           </Text>
           <Text className="mt-3 text-[15px] leading-[23px] text-hero-text-muted">
-            Reserva tu username y encuentra runners compatibles.
+            Tu grupo te está esperando. Entra, coordina y apúntate.
           </Text>
           <View className="mt-4 flex-row flex-wrap gap-2">
             {HERO_CHIPS.map((chip) => (
@@ -115,7 +115,7 @@ export default function SignUpScreen() {
         <View className="rounded-[30px] border border-border bg-surface p-5">
           <Text className="text-[26px] font-black leading-8 text-text">Crear cuenta</Text>
           <Text className="mt-1.5 text-[14px] leading-[21px] text-muted-text">
-            Reserva tu username y completa tu perfil runner para empezar.
+            Username, email y contraseña. Tardarás menos de un minuto.
           </Text>
 
           <View className="mt-5 gap-3.5">

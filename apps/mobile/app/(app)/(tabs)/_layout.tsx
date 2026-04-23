@@ -1,17 +1,16 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Link, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/ThemeContext';
-import { useAppHeaderOptions } from '@/components/useAppHeaderOptions';
 
 type TabIconName = React.ComponentProps<typeof FontAwesome6>['name'];
 
 const TAB_META: Record<string, { icon: TabIconName; title: string }> = {
   index: { icon: 'calendar-day', title: 'Hoy' },
-  communities: { icon: 'users', title: 'Comunidades' },
+  communities: { icon: 'users', title: 'Grupos' },
   profile: { icon: 'circle-user', title: 'Perfil' },
 };
 
@@ -107,81 +106,23 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
-  const { colors } = useAppTheme();
-  const headerOptions = useAppHeaderOptions();
-
   return (
     <Tabs
+      initialRouteName="index"
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        ...headerOptions,
+        headerShown: false,
       }}>
+      <Tabs.Screen
+        name="communities"
+        options={{
+          title: 'Grupos',
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
           title: 'Hoy',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <Link href="/modal" asChild>
-                <Pressable>
-                  {({ pressed }) => (
-                    <View
-                      style={[
-                        styles.newMeetupButton,
-                        {
-                          backgroundColor: colors.tint,
-                          opacity: pressed ? 0.8 : 1,
-                        },
-                      ]}>
-                      <Text style={[styles.newMeetupText, { color: colors.onTint }]}>+ Quedada</Text>
-                    </View>
-                  )}
-                </Pressable>
-              </Link>
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="communities"
-        options={{
-          title: 'Comunidades',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <Link href="/community-access" asChild>
-                <Pressable>
-                  {({ pressed }) => (
-                    <View
-                      style={[
-                        styles.newMeetupButton,
-                        {
-                          backgroundColor: colors.chip,
-                          opacity: pressed ? 0.8 : 1,
-                        },
-                      ]}>
-                      <Text style={[styles.newMeetupText, { color: colors.text }]}>Código</Text>
-                    </View>
-                  )}
-                </Pressable>
-              </Link>
-              <Link href="/community-new" asChild>
-                <Pressable>
-                  {({ pressed }) => (
-                    <View
-                      style={[
-                        styles.newMeetupButton,
-                        {
-                          backgroundColor: colors.tint,
-                          opacity: pressed ? 0.8 : 1,
-                        },
-                      ]}>
-                      <Text style={[styles.newMeetupText, { color: colors.onTint }]}>+ Comunidad</Text>
-                    </View>
-                  )}
-                </Pressable>
-              </Link>
-            </View>
-          ),
         }}
       />
       <Tabs.Screen
@@ -195,22 +136,6 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    marginRight: 15,
-  },
-  newMeetupButton: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  newMeetupText: {
-    color: '#FFF8EC',
-    fontSize: 13,
-    fontWeight: '900',
-  },
   tabBarWrapper: {
     alignItems: 'center',
     left: 0,

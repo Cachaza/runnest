@@ -271,7 +271,7 @@ export default function CrewDetailScreen() {
       await utils.communities.byId.invalidate({ id: communityId });
     },
     onError: (error) => {
-      Alert.alert('No se pudo crear el access link', error.message);
+      Alert.alert('No se pudo crear el código', error.message);
     },
   });
   const revokeAccessLinkMutation = trpc.communities.revokeAccessLink.useMutation({
@@ -283,7 +283,7 @@ export default function CrewDetailScreen() {
       await utils.communities.byId.invalidate({ id: communityId });
     },
     onError: (error) => {
-      Alert.alert('No se pudo revocar el access link', error.message);
+      Alert.alert('No se pudo revocar el código', error.message);
     },
   });
   const approveAccessClaimMutation = trpc.communities.approveAccessClaim.useMutation({
@@ -415,7 +415,7 @@ export default function CrewDetailScreen() {
 
   async function handleInvite() {
     if (!communityId || !inviteUsername.trim()) {
-      Alert.alert('Falta username', 'Escribe el username exacto de la persona que quieres invitar.');
+      Alert.alert('Falta el username', 'Escribe el username exacto de la persona que quieres invitar al grupo.');
       return;
     }
 
@@ -435,12 +435,12 @@ export default function CrewDetailScreen() {
     const maxUses = accessLinkMaxUses.trim() ? Number.parseInt(accessLinkMaxUses, 10) : null;
 
     if (Number.isNaN(expiresInDays) || expiresInDays <= 0) {
-      Alert.alert('Expiración inválida', 'Usa un número de días válido para la expiración.');
+      Alert.alert('Días inválido', 'Introduce un número de días válido para la expiración.');
       return;
     }
 
     if (maxUses !== null && (Number.isNaN(maxUses) || maxUses <= 0)) {
-      Alert.alert('Límite inválido', 'Si defines un límite de usos, debe ser un número positivo.');
+      Alert.alert('Límite inválido', 'Si defines un límite de usos, tiene que ser un número positivo.');
       return;
     }
 
@@ -464,7 +464,7 @@ export default function CrewDetailScreen() {
     });
 
     await Share.share({
-      message: `Únete a ${community.name} en AppRunners con el código ${code}. También puedes abrirlo directo aquí: ${accessUrl}`,
+      message: `Únete a ${community.name} en AppRunners con el código ${code}. También puedes entrar con este enlace: ${accessUrl}`,
     });
   }
 
@@ -556,8 +556,8 @@ export default function CrewDetailScreen() {
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.8 : isMutatingStaff ? 0.6 : 1,
                   })}
-                  className="flex-1 items-center rounded-[18px] bg-hero-accent px-4 py-[13px]">
-                  <Text className="text-[14px] font-black text-on-accent">{createMeetupLabel}</Text>
+                  className="flex-1 items-center rounded-[18px] bg-tint px-4 py-[13px]">
+                  <Text className="text-[14px] font-black text-on-tint">{createMeetupLabel}</Text>
                 </Pressable>
               ) : null}
 
@@ -568,21 +568,21 @@ export default function CrewDetailScreen() {
                   style={({ pressed }) => ({
                     backgroundColor: community.viewerMembershipRole
                       ? 'rgba(255,255,255,0.12)'
-                      : colors.heroAccent,
+                      : colors.tint,
                     opacity: pressed ? 0.8 : isMutatingMembership ? 0.6 : 1,
                   })}
                   className="flex-1 items-center rounded-[18px] px-4 py-[13px]">
                   <Text
                     className={`text-[14px] font-black ${
-                      community.viewerMembershipRole ? 'text-hero-text' : 'text-on-accent'
+                      community.viewerMembershipRole ? 'text-hero-text' : 'text-on-tint'
                     }`}>
                     {community.viewerMembershipRole
                       ? isMutatingMembership
-                        ? 'Saliendo...'
-                        : 'Salir'
+                        ? 'Saliendo…'
+                        : 'Salir del grupo'
                       : isMutatingMembership
-                        ? 'Uniéndote...'
-                        : 'Unirme'}
+                        ? 'Uniéndote…'
+                        : 'Unirme al grupo'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -594,7 +594,7 @@ export default function CrewDetailScreen() {
                 style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
                 <FontAwesome6 name="lock" size={12} color={colors.heroTextMuted} solid />
                 <Text className="flex-1 text-[13px] font-bold leading-[18px] text-hero-text-muted">
-                  Comunidad privada · entra por invitación o access link.
+                  Grupo privado · entra por invitación o código.
                 </Text>
               </View>
             ) : null}
@@ -608,13 +608,13 @@ export default function CrewDetailScreen() {
         <>
           <AppCard>
             <Text className="text-[13px] font-black uppercase tracking-[0.6px] text-muted-text">
-              Vista general
+              Resumen
             </Text>
             <MetaRow
               items={[
                 { label: 'Quedadas', value: upcomingMeetupsCount },
                 { label: 'Miembros', value: isMember ? membersCount : '—' },
-                { label: 'Access links', value: isStaff ? accessLinksCount : '—' },
+                { label: 'Códigos', value: isStaff ? accessLinksCount : '—' },
               ]}
             />
           </AppCard>
@@ -649,7 +649,7 @@ export default function CrewDetailScreen() {
 
           {upcomingMeetupsCount === 0 ? (
             <EmptyState
-              title="Sin quedadas futuras."
+              title="Sin salidas próximas."
               body={emptyMeetupsCopy(community.mode, entityLabelLower)}
             />
           ) : null}
@@ -713,7 +713,7 @@ export default function CrewDetailScreen() {
                 {managedMemberRunsTitle()}
               </Text>
               <Text className="mt-2 text-[18px] font-black leading-6 text-text">
-                El staff publica las quedadas oficiales.
+                El equipo organizador publica las quedadas.
               </Text>
               <Text className="mt-1 text-[14px] leading-[21px] text-muted-text">
                 {managedMemberRunsBody(entityLabelLower)}
@@ -732,7 +732,7 @@ export default function CrewDetailScreen() {
 
           {upcomingMeetupsCount === 0 ? (
             <EmptyState
-              title="Sin quedadas futuras."
+              title="Sin salidas próximas."
               body={emptyMeetupsCopy(community.mode, entityLabelLower)}
             />
           ) : null}
@@ -758,8 +758,8 @@ export default function CrewDetailScreen() {
             <>
               {membersCount === 0 ? (
                 <EmptyState
-                  title="Sin miembros visibles."
-                  body="Los miembros aparecerán aquí cuando formen parte activa de la comunidad."
+                  title="Sin miembros aún."
+                  body="Cuando alguien se apunte a una salida o entre al grupo, verás aquí a todos."
                 />
               ) : null}
 
@@ -823,8 +823,8 @@ export default function CrewDetailScreen() {
               <SectionHeader title={`Runners en esta ${entityLabelLower}`} />
               {(communityQuery.data?.activeRunners.length ?? 0) === 0 ? (
                 <EmptyState
-                  title="Aún sin runners públicos."
-                  body="Los runners aparecerán cuando creen o confirmen quedadas de esta comunidad."
+                  title="Sin runners visibles aún."
+                  body="Los runners aparecen aquí cuando crean o se apuntan a salidas del grupo."
                 />
               ) : null}
               {communityQuery.data?.activeRunners.map((runner) => (
@@ -838,8 +838,8 @@ export default function CrewDetailScreen() {
       {tab === 'manage' && community && isStaff ? (
         <>
           <CollapsibleCard
-            title="Invitar por username"
-            subtitle="Para gente que ya está dentro de la app"
+            title="Invitar a alguien"
+            subtitle="Para gente que ya tiene cuenta en AppRunners"
             defaultOpen={pendingInvitesCount === 0 && pendingJoinRequestsCount === 0 && pendingAccessClaimsCount === 0}>
             <TextInput
               autoCapitalize="none"
@@ -906,8 +906,8 @@ export default function CrewDetailScreen() {
               defaultOpen={pendingJoinRequestsCount > 0}>
               {pendingJoinRequestsCount === 0 ? (
                 <EmptyState
-                  title="Sin solicitudes pendientes."
-                  body="Aquí verás las solicitudes para esta comunidad privada."
+                  title="Sin solicitudes que revisar."
+                  body="Cuando alguien pida entrar al grupo privado, aparecerá aquí."
                 />
               ) : null}
               {communityQuery.data?.pendingJoinRequests.map((request) => (
@@ -953,17 +953,17 @@ export default function CrewDetailScreen() {
           ) : null}
 
           <CollapsibleCard
-            title="Access links"
+            title="Códigos de acceso"
             subtitle="Códigos reutilizables para bio, stories o DM"
             badge={accessLinksCount}>
             <Text className="text-[13px] leading-[18px] text-muted-text">
               {community.kind === 'creator_community'
-                ? 'Creator: approval recomendado para filtrar acceso masivo.'
+                ? 'Como es un grupo dirigido, te recomendamos pedir aprobación en los códigos.'
                 : community.kind === 'club' && community.visibility === 'private'
-                  ? 'Club privado: approval obligatorio para proteger la entrada.'
+                  ? 'Es un club privado: activa la aprobación para decidir quién entra.'
                   : community.kind === 'crew_local' && community.visibility === 'public'
-                    ? 'Crew pública: link abierto funciona para auto-join rápido.'
-                    : 'Si compartes un link abierto, cualquiera puede intentar entrar.'}
+                    ? 'Es público: puedes dar códigos sin aprobación, que entren directo.'
+                    : 'Con un código abierto, entra cualquiera. Si necesitas filtrar, pide aprobación.'}
             </Text>
 
             <TextInput
@@ -1025,7 +1025,7 @@ export default function CrewDetailScreen() {
             </View>
 
             <AppButton disabled={isMutatingStaff} onPress={handleCreateAccessLink}>
-              {createAccessLinkMutation.isPending ? 'Creando link...' : 'Crear access link'}
+              {createAccessLinkMutation.isPending ? 'Creando código...' : 'Crear código'}
             </AppButton>
 
             {accessLinksCount > 0 ? (
@@ -1055,10 +1055,10 @@ export default function CrewDetailScreen() {
                           : `${accessLink.usesCount} usos`}
                       </Chip>
                       {accessLink.pendingClaims > 0 ? (
-                        <Chip tone="warm">{accessLink.pendingClaims} pending</Chip>
+                        <Chip tone="warm">{accessLink.pendingClaims} pendientes</Chip>
                       ) : null}
                       <Chip tone={accessLink.isActive ? 'warm' : 'neutral'}>
-                        {accessLink.isActive ? 'Active' : 'Revoked'}
+                        {accessLink.isActive ? 'Activo' : 'Revocado'}
                       </Chip>
                     </View>
                     <View className="flex-row gap-2">
@@ -1093,14 +1093,14 @@ export default function CrewDetailScreen() {
           </CollapsibleCard>
 
           <CollapsibleCard
-            title="Claims de access link"
-            subtitle="Solicitudes entradas por códigos"
+            title="Solicitudes por código"
+            subtitle="Solicitudes recibidas por código"
             badge={pendingAccessClaimsCount}
             defaultOpen={pendingAccessClaimsCount > 0}>
             {pendingAccessClaimsCount === 0 ? (
               <EmptyState
-                title="Sin solicitudes pendientes."
-                body="Las solicitudes que entren por links con aprobación aparecerán aquí."
+                title="Sin solicitudes que revisar."
+                body="Cuando alguien entre por un código que requiera aprobación, aparecerá aquí."
               />
             ) : null}
 
@@ -1179,8 +1179,8 @@ export default function CrewDetailScreen() {
 
           {(communityQuery.data?.accessLinkSources.length ?? 0) > 0 ? (
             <CollapsibleCard
-              title="Atribución por origen"
-              subtitle="Qué canal trae más uso y aprobaciones">
+              title="Actividad por canal"
+              subtitle="Qué canal genera más entradas al grupo">
               {communityQuery.data?.accessLinkSources.map((source) => (
                 <View
                   key={source.sourceLabel}
@@ -1192,11 +1192,11 @@ export default function CrewDetailScreen() {
                         {source.totalLinks} links · {source.totalUses} usos
                       </Text>
                     </View>
-                    <Chip tone="warm">{source.approvedClaims} approved</Chip>
+                    <Chip tone="warm">{source.approvedClaims} aceptadas</Chip>
                   </View>
                   {source.pendingClaims > 0 ? (
                     <View className="flex-row flex-wrap gap-1.5">
-                      <Chip tone="cool">{source.pendingClaims} pending</Chip>
+                      <Chip tone="cool">{source.pendingClaims} pendientes</Chip>
                     </View>
                   ) : null}
                 </View>
@@ -1264,6 +1264,7 @@ type MeetupRowProps = {
     location: string;
     rsvpCount: number;
     viewerCanManage?: boolean;
+    viewerIsMember?: boolean;
     viewerIsGoing: boolean;
   };
   mode: 'collaborative' | 'managed';
@@ -1287,6 +1288,7 @@ function MeetupRow({
       ? roleLabel(meetup.createdByPrimaryRole)
       : null;
   const canManage = Boolean(meetup.viewerCanManage);
+  const canSeeAttendees = canManage || Boolean(meetup.viewerIsMember);
 
   function handleEdit() {
     if (!communityId) {
@@ -1333,34 +1335,38 @@ function MeetupRow({
             {labelForMeetupOrganizer(mode)} {organizerName}
             {organizerRole ? ` · ${organizerRole}` : ''}
           </Text>
-          {canManage ? (
+          {canSeeAttendees ? (
             <View className="mt-1 flex-row flex-wrap gap-2">
+              {canManage ? (
+                <Pressable
+                  disabled={manageDisabled}
+                  onPress={handleEdit}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                  className="rounded-full bg-chip px-3 py-1.5">
+                  <Text className="text-[12px] font-black text-text">Editar</Text>
+                </Pressable>
+              ) : null}
               <Pressable
-                disabled={manageDisabled}
-                onPress={handleEdit}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
-                className="rounded-full bg-chip px-3 py-1.5">
-                <Text className="text-[12px] font-black text-text">Editar</Text>
-              </Pressable>
-              <Pressable
-                disabled={manageDisabled}
+                disabled={canManage ? manageDisabled : disabled}
                 onPress={() => setShowAttendees((current) => !current)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : (canManage ? manageDisabled : disabled) ? 0.7 : 1 })}
                 className="rounded-full bg-chip px-3 py-1.5">
                 <Text className="text-[12px] font-black text-text">
                   {showAttendees ? 'Ocultar quién va' : `Ver quién va · ${meetup.attendees.length}`}
                 </Text>
               </Pressable>
-              <Pressable
-                disabled={manageDisabled}
-                onPress={confirmCancel}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
-                className="rounded-full bg-danger-surface px-3 py-1.5">
-                <Text className="text-[12px] font-black text-danger">Cancelar</Text>
-              </Pressable>
+              {canManage ? (
+                <Pressable
+                  disabled={manageDisabled}
+                  onPress={confirmCancel}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : manageDisabled ? 0.7 : 1 })}
+                  className="rounded-full bg-danger-surface px-3 py-1.5">
+                  <Text className="text-[12px] font-black text-danger">Cancelar</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
-          {canManage && showAttendees ? (
+          {canSeeAttendees && showAttendees ? (
             <View className="mt-2 gap-2 rounded-2xl bg-background px-3 py-3">
               <Text className="text-[12px] font-black uppercase tracking-[0.5px] text-muted-text">
                 Quién va · {meetup.attendees.length}

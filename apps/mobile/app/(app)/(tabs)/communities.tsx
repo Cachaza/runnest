@@ -1,5 +1,5 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, router } from 'expo-router';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -110,6 +110,7 @@ export default function CommunitiesScreen() {
   const utils = trpc.useUtils();
   const { data: session } = authClient.useSession();
   const [tab, setTab] = useState<TabValue>('discover');
+  const hasInitializedDefaultTab = useRef(false);
   const [communitySearch, setCommunitySearch] = useState('');
   const trimmedCommunitySearch = communitySearch.trim();
   const communitiesQuery = trpc.communities.listPublic.useQuery();
@@ -221,6 +222,15 @@ export default function CommunitiesScreen() {
   const inboxBadge = pendingInvitesCount + pendingJoinRequestsCount + pendingAccessClaimsCount;
   const myMembershipsCount = myMembershipsQuery.data?.length ?? 0;
 
+  useEffect(() => {
+    if (!session || hasInitializedDefaultTab.current) {
+      return;
+    }
+
+    hasInitializedDefaultTab.current = true;
+    setTab('spaces');
+  }, [session]);
+
   const { onRefresh, refreshing } = usePullToRefresh(async () => {
     await Promise.all([
       communitiesQuery.refetch(),
@@ -288,14 +298,14 @@ export default function CommunitiesScreen() {
   }
 
   const tabOptions = useMemo(() => {
-    const base: Array<{ value: TabValue; label: string; badge?: number }> = [
-      { value: 'discover', label: 'Descubrir' },
-    ];
+    const base: Array<{ value: TabValue; label: string; badge?: number }> = [];
 
     if (session) {
-      base.push({ value: 'spaces', label: 'Mis espacios', badge: myMembershipsCount });
+      base.push({ value: 'spaces', label: 'Mis grupos', badge: myMembershipsCount });
       base.push({ value: 'inbox', label: 'Pendiente', badge: inboxBadge });
     }
+
+    base.push({ value: 'discover', label: 'Descubrir' });
 
     return base;
   }, [session, myMembershipsCount, inboxBadge]);
@@ -303,16 +313,16 @@ export default function CommunitiesScreen() {
   return (
     <ScreenScroll onRefresh={onRefresh} refreshing={refreshing}>
       <HeroPanel
-        body="Descubre runs públicos, encuentra tu gente y lidera tu propio espacio si te apetece."
-        kicker="Comunidades"
-        title="Runs y crews cerca de ti"
+        body="Aquí están tus grupos, las salidas que vienen y las invitaciones que recibes."
+        kicker="Grupos"
+        title="Todos tus grupos en un sitio"
       />
 
       {session ? (
         <QuickActionRow>
           <QuickAction
             icon="plus"
-            label="Crear"
+            label="Grupo"
             tone="primary"
             onPress={() => router.push('/community-new')}
           />
@@ -324,7 +334,7 @@ export default function CommunitiesScreen() {
           <QuickAction
             icon="magnifying-glass"
             label="Buscar"
-            onPress={() => setTab('spaces')}
+            onPress={() => setTab('discover')}
           />
         </QuickActionRow>
       ) : null}
@@ -344,8 +354,8 @@ export default function CommunitiesScreen() {
 
           {!meetupsQuery.isPending && !meetupsQuery.error && meetupsQuery.data?.length === 0 ? (
             <EmptyState
-              title="Sin quedadas publicadas."
-              body="Crea una desde Hoy o desde tus espacios para empezar a mover a la comunidad."
+              title="Sin salidas públicas."
+              body="Crea una desde Hoy o desde uno de tus grupos para que aparezca aquí."
             />
           ) : null}
 
@@ -408,16 +418,16 @@ export default function CommunitiesScreen() {
                               ? isDark
                                 ? 'rgba(255,243,228,0.12)'
                                 : 'rgba(255,248,236,0.16)'
-                              : colors.heroAccent,
+                              : colors.tint,
                             opacity: pressed ? 0.7 : isMutatingRsvp || !session ? 0.7 : 1,
                           },
                         ]}>
                         <Text
                           style={[
                             styles.rsvpButtonText,
-                            { color: meetup.viewerIsGoing ? colors.heroText : '#1A1410' },
+                            { color: meetup.viewerIsGoing ? colors.heroText : colors.onTint },
                           ]}>
-                          {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
+                          {meetup.viewerIsGoing ? 'Salgo' : 'Me apunto'}
                         </Text>
                       </Pressable>
                     </View>
@@ -429,7 +439,7 @@ export default function CommunitiesScreen() {
 
           <SectionHeader
             loading={isLoadingCommunities}
-            title={recommendedCommunities.length > 0 ? 'Recomendadas' : 'Todas las comunidades'}
+            title={recommendedCommunities.length > 0 ? 'Para descubrir más' : 'Grupos públicos'}
           />
 
           {communitiesQuery.error ? (
@@ -441,8 +451,8 @@ export default function CommunitiesScreen() {
 
           {!isLoadingCommunities && communities.length === 0 ? (
             <EmptyState
-              title="Aún no hay comunidades activas."
-              body="Cuando se creen comunidades aparecerán aquí con su ciudad, ritmo y vibe."
+              title="Aún no hay grupos activos."
+              body="Cuando haya grupos públicos activos, aparecerán aquí."
             />
           ) : null}
 
@@ -515,21 +525,21 @@ export default function CommunitiesScreen() {
               ]}
               value={communitySearch}
             />
-            <Text className="text-[13px] leading-5 text-muted-text">
-              Las privadas no salen en discovery. Búscalas por nombre, slug o ciudad.
+              <Text className="text-[13px] leading-5 text-muted-text">
+              Los grupos privados no salen aquí. Búscalos por nombre o ciudad para pedirles acceso.
             </Text>
           </AppCard>
 
           {trimmedCommunitySearch.length >= 2 ? (
             <>
               {communitySearchQuery.isPending ? (
-                <EmptyState title="Buscando..." body="Revisando coincidencias por nombre, slug y ciudad." />
+                <EmptyState title="Buscando..." body="Buscando por nombre y ciudad..." />
               ) : null}
 
               {!communitySearchQuery.isPending && (communitySearchQuery.data?.length ?? 0) === 0 ? (
                 <EmptyState
                   title="Sin coincidencias."
-                  body="Prueba con el nombre exacto, el slug o una pista de ciudad."
+                  body="Prueba con el nombre exacto del grupo o una pista de ciudad."
                 />
               ) : null}
 
@@ -553,9 +563,9 @@ export default function CommunitiesScreen() {
                           {labelForCommunityKind(result.kind)} · {result.city}
                         </Text>
                       </View>
-                      <Chip tone={result.visibility === 'private' ? 'warm' : 'cool'}>
-                        {labelForVisibility(result.visibility)}
-                      </Chip>
+                    <Chip tone={result.visibility === 'private' ? 'warm' : 'cool'}>
+                      {labelForVisibility(result.visibility)}
+                    </Chip>
                     </View>
                     <Text className="text-[14px] leading-[21px] text-muted-text" numberOfLines={3}>
                       {result.description}
@@ -575,7 +585,7 @@ export default function CommunitiesScreen() {
                           <Pressable
                             style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
                             className="flex-1 items-center rounded-[18px] bg-chip py-[13px]">
-                            <Text className="text-[14px] font-black text-text">Abrir</Text>
+                            <Text className="text-[14px] font-black text-text">Ver grupo</Text>
                           </Pressable>
                         </Link>
                       ) : null}
@@ -606,7 +616,7 @@ export default function CommunitiesScreen() {
             right={
               <Link href="/community-new" asChild>
                 <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
-                  <Text className="text-[13px] font-black text-tint">+ Crear</Text>
+                  <Text className="text-[13px] font-black text-tint">+ Crear grupo</Text>
                 </Pressable>
               </Link>
             }
@@ -614,8 +624,8 @@ export default function CommunitiesScreen() {
 
           {!myMembershipsQuery.isPending && (myMembershipsQuery.data?.length ?? 0) === 0 ? (
             <EmptyState
-              title="Aún no perteneces a ninguna comunidad."
-              body="Únete a una pública desde Descubrir o crea la tuya para empezar a publicar runs."
+              title="Aún no estás en ningún grupo."
+              body="Busca uno público, entra con un código o crea uno nuevo."
             />
           ) : null}
 
@@ -646,8 +656,8 @@ export default function CommunitiesScreen() {
 
           {!myInvitesQuery.isPending && pendingInvitesCount === 0 ? (
             <EmptyState
-              title="Sin invitaciones pendientes."
-              body="Cuando alguien te invite a una comunidad privada o managed, aparecerá aquí."
+              title="Sin invitaciones."
+              body="Cuando alguien te invite a su grupo, te avisamos aquí."
             />
           ) : null}
 
@@ -671,7 +681,7 @@ export default function CommunitiesScreen() {
                   onPress={() => handleInviteAction(invite.id, 'accept')}
                   style={({ pressed }) => ({ opacity: pressed ? 0.75 : isMutatingInvite ? 0.7 : 1 })}
                   className="flex-1 items-center rounded-[18px] bg-tint py-[13px]">
-                  <Text className="text-[14px] font-black text-on-tint">Aceptar</Text>
+                    <Text className="text-[14px] font-black text-on-tint">Aceptar</Text>
                 </Pressable>
                 <Pressable
                   disabled={isMutatingInvite}
@@ -694,8 +704,8 @@ export default function CommunitiesScreen() {
 
           {!myJoinRequestsQuery.isPending && (myJoinRequestsQuery.data?.length ?? 0) === 0 ? (
             <EmptyState
-              title="Sin solicitudes enviadas."
-              body="Cuando pidas acceso a una comunidad privada, verás aquí el estado."
+              title="Sin solicitudes pendientes."
+              body="Si pides entrar a un grupo privado, aquí verás si te aceptan."
             />
           ) : null}
 
@@ -720,7 +730,7 @@ export default function CommunitiesScreen() {
                       <Pressable
                         style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
                         className="flex-1 items-center rounded-[18px] bg-tint py-[13px]">
-                        <Text className="text-[14px] font-black text-on-tint">Abrir</Text>
+                        <Text className="text-[14px] font-black text-on-tint">Abrir grupo</Text>
                       </Pressable>
                     </Link>
                   ) : null}
@@ -750,8 +760,8 @@ export default function CommunitiesScreen() {
 
           {!myAccessLinkClaimsQuery.isPending && (myAccessLinkClaimsQuery.data?.length ?? 0) === 0 ? (
             <EmptyState
-              title="Sin actividad por códigos."
-              body="Cuando entres a una comunidad con un access link, aquí verás el estado."
+              title="Sin códigos usados."
+              body="Cuando uses un código para entrar a un grupo, aparecerá aquí."
             />
           ) : null}
 
@@ -774,7 +784,7 @@ export default function CommunitiesScreen() {
                   <Pressable
                     style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
                     className="mt-1 self-start rounded-[18px] bg-chip px-4 py-3">
-                    <Text className="text-[13px] font-black text-text">Abrir comunidad</Text>
+                    <Text className="text-[13px] font-black text-text">Abrir grupo</Text>
                   </Pressable>
                 </Link>
               ) : null}

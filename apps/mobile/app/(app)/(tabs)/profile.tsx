@@ -98,7 +98,7 @@ export default function ProfileScreen() {
     ? [profile.city, profile.pace ? `Ritmo ${profile.pace}` : null]
         .filter(Boolean)
         .join(' · ')
-    : 'Completa tu perfil para aparecer en los matches';
+    : 'Completa tu perfil para que el grupo sepa quién eres.';
 
   return (
     <ScreenScroll onRefresh={hasProfile ? onRefresh : undefined} refreshing={refreshing}>
@@ -106,9 +106,9 @@ export default function ProfileScreen() {
 
       {!hasProfile && !profileQuery.isPending ? (
         <AppCard>
-          <Text className="text-[22px] font-black text-text">Crea tu perfil runner</Text>
+          <Text className="text-[22px] font-black text-text">Completa tu perfil</Text>
           <Text className="text-[15px] leading-[22px] text-muted-text">
-            Necesitamos un par de datos para recomendarte crews y quedadas compatibles.
+            City, ritmo y disponibilidad. Así el grupo te conoce y sabe mejor quién corre contigo.
           </Text>
           <Pressable
             onPress={() => router.push('/profile-edit' as any)}
@@ -236,8 +236,8 @@ function ProfileSummary({
   if (isLoading && !profile) {
     return (
       <EmptyState
-        title="Cargando tu ficha pública..."
-        body="Un momento, estamos preparando la vista que verán otros runners."
+        title="Cargando tu perfil..."
+        body="Un segundo mientras preparamos la ficha que ven otros runners."
       />
     );
   }
@@ -281,8 +281,7 @@ function ProfileSummary({
           <AvailabilityMatrix slots={availabilitySlots} />
         ) : (
           <Text className="mt-2 text-[14px] leading-[21px] text-muted-text">
-            Aún no has marcado tus horarios favoritos. Añádelos desde Editar para recibir
-            mejores recomendaciones.
+            Aún no has marcado horarios. Añádelos en Editar para que el grupo sepa cuándo puedes correr.
           </Text>
         )}
       </AppCard>
@@ -346,7 +345,7 @@ function AgendaSection({
     return (
       <EmptyState
         title="Cargando tu agenda..."
-        body="Un momento, recogiendo las próximas quedadas en las que apareces."
+        body="Un segundo mientras traemos tus próximas salidas."
       />
     );
   }
@@ -354,8 +353,8 @@ function AgendaSection({
   if (meetups.length === 0) {
     return (
       <EmptyState
-        title="Sin próximas quedadas."
-        body="Cuando crees o confirmes una quedada pública, aparecerá aquí y en tu ficha."
+        title="Sin salidas confirmadas."
+        body="Cuando te apuntes a una salida pública, aparecerá aquí y en tu perfil."
       />
     );
   }

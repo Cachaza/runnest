@@ -5,7 +5,7 @@ export type CommunityVisibility = 'public' | 'private'
 export function labelForCommunityKind(kind?: CommunityKind | null) {
   switch (kind) {
     case 'crew_local':
-      return 'Crew'
+      return 'Grupo'
     case 'club':
       return 'Club'
     case 'training_group':
@@ -19,7 +19,7 @@ export function labelForCommunityKind(kind?: CommunityKind | null) {
 export function lowerLabelForCommunityKind(kind?: CommunityKind | null) {
   switch (kind) {
     case 'crew_local':
-      return 'crew'
+      return 'grupo'
     case 'club':
       return 'club'
     case 'training_group':
@@ -36,58 +36,58 @@ export function labelForMode(mode?: CommunityMode | null) {
 
 export function descriptionForMode(mode?: CommunityMode | null) {
   if (mode === 'collaborative') {
-    return 'Los miembros activos pueden proponer y organizar quedadas con un estilo más horizontal.'
+    return 'Cualquiera del grupo puede crear salidas. El grupo se organiza desde la app.'
   }
 
-  return 'El staff publica las quedadas oficiales y mantiene una propuesta más curada para la comunidad.'
+  return 'El equipo decide las salidas y las publica. Los demás se apuntan si les viene bien.'
 }
 
 export function labelForMeetupStyle(mode?: CommunityMode | null) {
-  return mode === 'collaborative' ? 'Abierto a miembros' : 'Oficial'
+  return mode === 'collaborative' ? 'Abierta' : 'Del equipo'
 }
 
 export function labelForMeetupOrganizer(mode?: CommunityMode | null) {
-  return mode === 'collaborative' ? 'Propuesta de' : 'Publicado por'
+  return mode === 'collaborative' ? 'Creada por' : 'Publicada por'
 }
 
 export function createMeetupCtaLabel(mode?: CommunityMode | null) {
-  return mode === 'collaborative' ? '+ Proponer quedada' : '+ Publicar quedada'
+  return mode === 'collaborative' ? '+ Salida' : '+ Salida'
 }
 
 export function createMeetupTitle(mode?: CommunityMode | null) {
   return mode === 'collaborative'
-    ? 'Propón la próxima quedada de tu comunidad.'
-    : 'Publica la próxima quedada oficial de tu comunidad.'
+    ? 'Crea la próxima salida.'
+    : 'Publica la próxima salida del grupo.'
 }
 
 export function createMeetupBody(mode?: CommunityMode | null) {
   return mode === 'collaborative'
-    ? 'En los espacios collaborative los miembros activos pueden mover el grupo con planes sencillos y claros.'
-    : 'En los espacios managed el staff marca el calendario con quedadas oficiales y una propuesta más guiada.'
+    ? 'Hora, lugar y km. El grupo se apunta desde aquí.'
+    : 'Día, hora, sitio y distancia. El equipo coordina y los demás se apuntan.'
 }
 
 export function emptyMeetupsCopy(mode: CommunityMode, entityLabelLower: string) {
   if (mode === 'collaborative') {
-    return `Cuando alguien de esta ${entityLabelLower} proponga una salida, aparecerá aquí para que el grupo se organice.`
+    return `Cuando alguien de este ${entityLabelLower} cree una salida, aparecerá aquí.`
   }
 
-  return `Cuando el staff de esta ${entityLabelLower} publique una salida oficial, aparecerá aquí.`
+  return `Cuando el equipo publique una salida, aparecerá aquí para que te apuntes.`
 }
 
 export function modeCommunityCardCopy(mode?: CommunityMode | null) {
   if (mode === 'collaborative') {
-    return 'Aquí los miembros pueden proponer planes, mover horarios y organizar la siguiente quedada.'
+    return 'El grupo crea salidas cuando quiere. Todos se apuntan desde la app.'
   }
 
-  return 'Aquí el staff publica runs oficiales y cuida mejor qué se mueve dentro de la comunidad.'
+  return 'El equipo publica las salidas. Tú te apuntas si te viene bien.'
 }
 
 export function managedMemberRunsTitle() {
-  return 'Calendario oficial del staff'
+  return 'Salidas que publica el equipo'
 }
 
 export function managedMemberRunsBody(entityLabelLower: string) {
-  return `Como miembro de esta ${entityLabelLower}, aquí verás las quedadas oficiales del staff y podrás apuntarte cuando encajen contigo.`
+  return `El equipo publica las salidas aquí. Tú te apuntas a las que te vengan bien.`
 }
 
 export function labelForVisibility(visibility?: CommunityVisibility | null) {
@@ -97,13 +97,13 @@ export function labelForVisibility(visibility?: CommunityVisibility | null) {
 export function descriptionForCommunityKind(kind?: CommunityKind | null) {
   switch (kind) {
     case 'crew_local':
-      return 'Grupo horizontal para gente de una zona o ciudad. Ideal si quieres que los miembros propongan runs y horarios.'
+      return 'Gente de tu zona que corre y se reúne. Sin compromiso, solo salidas cuando toca.'
     case 'creator_community':
-      return 'Espacio managed para creator, influencer o coach. El staff controla mejor qué se publica y cómo entra la gente.'
+      return 'Un coach o influencer coordina el grupo. Tú sigues el plan que publica.'
     case 'club':
-      return 'Formato más cerrado y disciplinado. Encaja para club privado, staff claro y acceso más controlado.'
+      return 'Un club estructurado. Acceso controlado, equipo claro, plan definido.'
     case 'training_group':
-      return 'Grupo orientado a preparar objetivos o bloques de entrenamiento. Suele necesitar estructura y hosts visibles.'
+      return 'Grupo que se prepara para un objetivo. Entrenamientos coordinados con propósito.'
     default:
       return ''
   }
@@ -115,26 +115,26 @@ export function recommendedSetupForCommunityKind(kind: CommunityKind) {
       return {
         mode: 'collaborative' as CommunityMode,
         visibility: 'public' as CommunityVisibility,
-        accessLinkCopy: 'Preset recomendado: comunidad pública y links con auto-join para crecer fácil.',
+        accessLinkCopy: 'Público: que se apunte quien quiera. Códigos sin aprobación para que crezca.',
       }
     case 'creator_community':
       return {
         mode: 'managed' as CommunityMode,
         visibility: 'public' as CommunityVisibility,
-        accessLinkCopy: 'Preset recomendado: managed y approval por defecto en los access links.',
+        accessLinkCopy: 'Tú diriges. Público pero con códigos que piden aprobación por defecto.',
       }
     case 'club':
       return {
         mode: 'managed' as CommunityMode,
         visibility: 'private' as CommunityVisibility,
-        accessLinkCopy: 'Preset recomendado: privado y approval casi obligatorio en los access links.',
+        accessLinkCopy: 'Privado: control total. Códigos con aprobación obligatoria.',
       }
     case 'training_group':
     default:
       return {
         mode: 'managed' as CommunityMode,
         visibility: 'public' as CommunityVisibility,
-        accessLinkCopy: 'Preset recomendado: managed con access links revisados según el tipo de grupo.',
+        accessLinkCopy: 'Público. Tú diriges el entrenamiento con códigos revisados.',
       }
   }
 }

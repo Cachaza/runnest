@@ -137,7 +137,7 @@ export default function ModalScreen() {
     setFormError(null);
 
     if (!values.communityId) {
-      setFormError('Elige una comunidad antes de publicar la quedada.');
+      setFormError('Elige un grupo antes de publicar la quedada.');
       return;
     }
 
@@ -182,14 +182,14 @@ export default function ModalScreen() {
       contentContainerClassName="justify-center p-[18px]">
       <View className="rounded-[32px] border border-border bg-surface p-[22px]">
         <Text className="text-xs font-black uppercase tracking-[1.1px] text-tint">
-          {isEditing ? 'Editar quedada' : selectedMode === 'managed' ? 'Run oficial' : 'Nueva quedada'}
+          {isEditing ? 'Editar quedada' : 'Nueva quedada'}
         </Text>
         <Text className="mt-2.5 text-[32px] font-black leading-9 text-text">
-          {isEditing ? 'Ajusta el plan y vuelve a publicarlo.' : createMeetupTitle(selectedMode)}
+          {isEditing ? 'Ajusta el plan y vuelve a compartirlo.' : createMeetupTitle(selectedMode)}
         </Text>
         <Text className="mt-3 text-[15px] leading-[23px] text-muted-text">
           {isEditing
-            ? 'Corrige título, lugar, distancia o fecha sin romper el flujo de la comunidad.'
+            ? 'Corrige título, lugar, distancia o fecha sin romper la coordinación del grupo.'
             : createMeetupBody(selectedMode)}
         </Text>
 
@@ -230,7 +230,7 @@ export default function ModalScreen() {
           <>
             <View className="mt-2.5 flex-row flex-wrap gap-2">
               <Chip tone="neutral">{labelForMode(selectedCommunity.mode)}</Chip>
-              <Chip tone="warm">{labelForMeetupStyle(selectedCommunity.mode)}</Chip>
+              <Chip tone="cool">{selectedCommunity.visibility === 'private' ? 'Solo miembros' : 'Visible para todos'}</Chip>
             </View>
             {isEditing ? (
               <Text className="mt-2 text-sm font-bold leading-5 text-muted-text">
@@ -239,8 +239,6 @@ export default function ModalScreen() {
             ) : null}
             <Text className="mt-2.5 text-sm font-bold leading-5 text-muted-text">
               {labelForCommunityKind(selectedCommunity.kind)} · {selectedCommunity.city}
-              {selectedCommunity.pace ? ` · ${selectedCommunity.pace}` : ''}
-              {selectedCommunity.vibe ? ` · ${selectedCommunity.vibe}` : ''}
             </Text>
           </>
         ) : null}
@@ -254,7 +252,7 @@ export default function ModalScreen() {
               render={({ field: { onChange, value } }) => (
                 <TextInput
                   onChangeText={onChange}
-                  placeholder="Sunset social run"
+                  placeholder="Tirada del domingo"
                   placeholderTextColor={colors.mutedText}
                   style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                   value={value}

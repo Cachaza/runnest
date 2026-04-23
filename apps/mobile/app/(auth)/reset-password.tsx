@@ -1,6 +1,6 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,51 +13,62 @@ import {
 import {
   AuthFormField,
   AuthPasswordInput,
-  AuthTextInput,
   authFieldStyles,
 } from '@/components/AuthFormField';
 import { HeaderBackButton } from '@/components/HeaderBackButton';
 import { useAppTheme } from '@/components/ThemeContext';
 import { authClient } from '@/lib/auth-client';
-import { queryClient } from '@/lib/trpc';
 
-const HERO_CHIPS = ['Tu grupo', 'Quedadas', 'Quién viene'];
-
-export default function SignInScreen() {
+export default function ResetPasswordScreen() {
+  const params = useLocalSearchParams<{ error?: string; token?: string }>();
+  const token = useMemo(
+    () => (Array.isArray(params.token) ? params.token[0] : params.token) ?? '',
+    [params.token],
+  );
+  const tokenError = useMemo(
+    () => (Array.isArray(params.error) ? params.error[0] : params.error) ?? null,
+    [params.error],
+  );
   const { colors } = useAppTheme();
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(tokenError ? 'Ese enlace no es válido o ha caducado.' : null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit() {
-    const trimmedEmail = email.trim().toLowerCase();
     setError(null);
 
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      setError('Introduce un email válido.');
+    if (!token) {
+      setError('Falta el token de recuperación.');
       return;
     }
+
     if (password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.');
+      setError('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const result = await authClient.signIn.email({
-        email: trimmedEmail,
-        password,
+      const result = await authClient.resetPassword({
+        newPassword: password,
+        token,
       });
 
       if (result.error) {
-        setError(result.error.message ?? 'No hemos podido iniciar sesión.');
+        setError(result.error.message ?? 'No hemos podido cambiar la contraseña.');
         return;
       }
 
+      setSuccess(true);
       setPassword('');
-      await queryClient.invalidateQueries();
-      router.replace('/');
+      setConfirmPassword('');
     } catch {
       setError('No se pudo conectar con AppRunners. Revisa la API e inténtalo de nuevo.');
     } finally {
@@ -78,60 +89,43 @@ export default function SignInScreen() {
           <HeaderBackButton onPress={() => router.back()} />
         </View>
 
-        {/* Hero compacto */}
         <View className="rounded-[34px] bg-hero px-7 pb-7 pt-6">
           <Text className="text-[11px] font-black uppercase tracking-[2px] text-hero-accent">
-            AppRunners
+            Nueva contraseña
           </Text>
           <Text className="mt-4 text-[34px] font-black leading-[38px] text-hero-text">
-            Bienvenido{'\n'}de vuelta,{'\n'}runner.
+            Vuelve a{'\n'}entrar rápido.
           </Text>
           <Text className="mt-3 text-[15px] leading-[23px] text-hero-text-muted">
-            Tus grupos, próximas quedadas y el estado de quién viene te están esperando.
+            Elige una contraseña nueva y vuelve al grupo sin perder el ritmo.
           </Text>
-          <View className="mt-4 flex-row flex-wrap gap-2">
-            {HERO_CHIPS.map((chip) => (
-              <View key={chip} className="rounded-full bg-hero-accent px-3 py-2">
-                <Text className="text-xs font-black uppercase tracking-[0.4px] text-on-accent">
-                  {chip}
-                </Text>
-              </View>
-            ))}
-          </View>
         </View>
 
-        {/* Form card */}
         <View className="rounded-[30px] border border-border bg-surface p-5">
-          <Text className="text-[26px] font-black leading-8 text-text">Vuelve a tus quedadas</Text>
+          <Text className="text-[26px] font-black leading-8 text-text">Elige una contraseña nueva</Text>
           <Text className="mt-1.5 text-[14px] leading-[21px] text-muted-text">
-            Entra para coordinar quedadas, apuntarte rápido y gestionar tus grupos.
+            Mínimo 8 caracteres. Después entras directo al grupo.
           </Text>
 
           <View className="mt-5 gap-3.5">
-            <AuthFormField label="Email">
-              <AuthTextInput
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                onChangeText={setEmail}
-                placeholder="runner@email.com"
-                value={email}
-              />
-            </AuthFormField>
-
-            <AuthFormField label="Contraseña">
+            <AuthFormField label="Nueva contraseña">
               <AuthPasswordInput
-                autoComplete="current-password"
+                autoComplete="new-password"
                 onChangeText={setPassword}
                 placeholder="Mínimo 8 caracteres"
                 value={password}
               />
             </AuthFormField>
-          </View>
 
-          <Pressable className="mt-3 self-start" hitSlop={8} onPress={() => router.push('/(auth)/forgot-password' as any)}>
-            <Text className="text-[13px] font-bold text-tint">¿Olvidaste tu contraseña?</Text>
-          </Pressable>
+            <AuthFormField label="Repite la contraseña">
+              <AuthPasswordInput
+                autoComplete="new-password"
+                onChangeText={setConfirmPassword}
+                placeholder="Repite la contraseña"
+                value={confirmPassword}
+              />
+            </AuthFormField>
+          </View>
 
           {error ? (
             <View style={[authFieldStyles.errorCard, { backgroundColor: colors.chip }]}>
@@ -147,22 +141,32 @@ export default function SignInScreen() {
             </View>
           ) : null}
 
+          {success ? (
+            <View style={[authFieldStyles.errorCard, { backgroundColor: colors.chip }]}>
+              <Text className="text-[13px] font-bold leading-5 text-text">
+                Contraseña actualizada. Ya puedes entrar con la nueva clave.
+              </Text>
+            </View>
+          ) : null}
+
           <Pressable
             disabled={submitting}
             onPress={handleSubmit}
             style={({ pressed }) => ({ opacity: pressed ? 0.85 : submitting ? 0.65 : 1 })}
             className="mt-5 items-center rounded-[18px] bg-tint py-[16px]">
             <Text className="text-[15px] font-black text-on-tint">
-              {submitting ? 'Entrando...' : 'Entrar'}
+              {submitting ? 'Guardando...' : 'Guardar contraseña'}
             </Text>
           </Pressable>
 
-          <View className="mt-4 flex-row justify-center gap-1.5">
-            <Text className="text-[13px] text-muted-text">¿Nuevo en AppRunners?</Text>
-            <Pressable hitSlop={6} onPress={() => router.replace('/(auth)/sign-up')}>
-              <Text className="text-[13px] font-black text-tint">Crear cuenta</Text>
+          {success ? (
+            <Pressable
+              className="mt-3 self-start"
+              hitSlop={8}
+              onPress={() => router.replace('/(auth)/sign-in')}>
+              <Text className="text-[13px] font-bold text-tint">Ir al inicio de sesión</Text>
             </Pressable>
-          </View>
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

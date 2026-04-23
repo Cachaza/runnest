@@ -22,11 +22,11 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="modal"
-        options={{ presentation: 'modal', title: 'Crear quedada' }}
+        options={{ presentation: 'modal', title: 'Nueva salida' }}
       />
       <Stack.Screen
         name="community-new"
-        options={{ presentation: 'modal', title: 'Crear comunidad' }}
+        options={{ presentation: 'modal', title: 'Crear grupo' }}
       />
       <Stack.Screen
         name="community-access"
@@ -46,7 +46,7 @@ export default function AppLayout() {
       />
       <Stack.Screen
         name="crew/[id]"
-        options={{ title: 'Crew' }}
+        options={{ title: 'Grupo' }}
       />
     </Stack>
   );

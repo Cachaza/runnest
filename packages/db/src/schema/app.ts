@@ -32,6 +32,8 @@ export type CommunityUserInviteStatus =
   | 'expired'
 export type CommunityJoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
 export type CommunityAccessLinkClaimStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+export type PushDevicePlatform = 'ios' | 'android' | 'web' | 'unknown'
+export type NotificationDeliveryStatus = 'pending' | 'sent' | 'failed'
 
 export const profiles = pgTable(
   'profiles',
@@ -285,5 +287,55 @@ export const communityAccessLinkClaims = pgTable(
       table.status,
     ),
     userStatusIndex: index('community_access_link_claims_user_status_idx').on(table.userId, table.status),
+  }),
+)
+
+export const userPushDevices = pgTable(
+  'user_push_devices',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    expoPushToken: text('expo_push_token').notNull(),
+    platform: text('platform').$type<PushDevicePlatform>().notNull().default('unknown'),
+    isActive: boolean('is_active').default(true).notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIndex: index('user_push_devices_user_idx').on(table.userId),
+    activeIndex: index('user_push_devices_active_idx').on(table.userId, table.isActive),
+    tokenIndex: uniqueIndex('user_push_devices_token_idx').on(table.expoPushToken),
+  }),
+)
+
+export const notificationDeliveries = pgTable(
+  'notification_deliveries',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    pushDeviceId: text('push_device_id').references(() => userPushDevices.id, {
+      onDelete: 'set null',
+    }),
+    notificationType: text('notification_type').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    data: jsonb('data').$type<Record<string, string | number | boolean | null>>().default({}).notNull(),
+    status: text('status').$type<NotificationDeliveryStatus>().notNull().default('pending'),
+    providerTicketId: text('provider_ticket_id'),
+    providerResponse: text('provider_response'),
+    errorMessage: text('error_message'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIndex: index('notification_deliveries_user_idx').on(table.userId),
+    statusIndex: index('notification_deliveries_status_idx').on(table.status, table.createdAt),
+    typeIndex: index('notification_deliveries_type_idx').on(table.notificationType, table.createdAt),
   }),
 )

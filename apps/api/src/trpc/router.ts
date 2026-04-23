@@ -14,7 +14,9 @@ import {
   meetups,
   meetupRsvps,
   member,
+  notificationDeliveries,
   profiles,
+  userPushDevices,
   user,
 } from '@apprunners/db'
 import { searchMunicipalities } from '@apprunners/geo'
@@ -29,6 +31,7 @@ import {
 } from '../lib/community-membership-service.js'
 import { geocodeWithCartociudad } from '../lib/geocoding/cartociudad.js'
 import { geocodeWithNominatim } from '../lib/geocoding/nominatim.js'
+import { sendPushNotificationToUsers } from '../lib/push.js'
 import { createTRPCRouter, protectedProcedure, publicProcedure } from './init.js'
 
 function parsePaceToSeconds(pace: string) {
@@ -718,6 +721,46 @@ async function isUserBlockedInCommunity(
     .limit(1)
 
   return Boolean(blocked)
+}
+
+function dedupeUserIds(userIds: Array<string | null | undefined>) {
+  return Array.from(new Set(userIds.filter((userId): userId is string => Boolean(userId))))
+}
+
+function withoutActor(userIds: string[], actorUserId: string) {
+  return userIds.filter((userId) => userId !== actorUserId)
+}
+
+async function getCommunityMemberUserIds(
+  ctx: {
+    db: typeof import('@apprunners/db').db
+  },
+  communityId: string,
+) {
+  const rows = await ctx.db
+    .select({
+      userId: member.userId,
+    })
+    .from(member)
+    .where(eq(member.organizationId, communityId))
+
+  return rows.map((row) => row.userId)
+}
+
+async function getMeetupAttendeeUserIds(
+  ctx: {
+    db: typeof import('@apprunners/db').db
+  },
+  meetupId: number,
+) {
+  const rows = await ctx.db
+    .select({
+      userId: meetupRsvps.userId,
+    })
+    .from(meetupRsvps)
+    .where(eq(meetupRsvps.meetupId, meetupId))
+
+  return rows.map((row) => row.userId)
 }
 
 const usernameSchema = z
@@ -1411,7 +1454,7 @@ export const appRouter = createTRPCRouter({
 
             return {
               ...meetup,
-              attendees: viewerCanManageMeetup
+              attendees: viewerMembership
                 ? attendeeRows
                     .filter((attendee) => attendee.meetupId === meetup.id)
                     .map((attendee) => ({
@@ -1423,6 +1466,7 @@ export const appRouter = createTRPCRouter({
               createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
               rsvpCount: meetupRsvpRows.length,
               viewerCanManage: viewerCanManageMeetup,
+              viewerIsMember: Boolean(viewerMembership),
               viewerIsGoing: ctx.user
                 ? meetupRsvpRows.some((rsvp) => rsvp.userId === ctx.user?.id)
                 : false,
@@ -1781,6 +1825,17 @@ export const appRouter = createTRPCRouter({
               status: 'approved',
             })
             .where(eq(communityJoinRequests.id, joinRequest.id))
+
+          await sendPushNotificationToUsers({
+            userIds: [joinRequest.userId],
+            notificationType: 'join_request_approved',
+            title: 'Tu solicitud ha sido aprobada',
+            body: 'Ya puedes entrar en el grupo y ver las próximas quedadas.',
+            data: {
+              communityId: joinRequest.communityId,
+              route: `/crew/${joinRequest.communityId}`,
+            },
+          })
 
           return { ok: true }
         }
@@ -2253,6 +2308,17 @@ export const appRouter = createTRPCRouter({
             .where(eq(communityAccessLinks.id, accessLink.id))
         })
 
+        await sendPushNotificationToUsers({
+          userIds: [claim.userId],
+          notificationType: 'access_claim_approved',
+          title: 'Tu acceso ha sido aprobado',
+          body: 'Ya puedes entrar en el grupo y ver sus próximas quedadas.',
+          data: {
+            communityId: claim.communityId,
+            route: `/crew/${claim.communityId}`,
+          },
+        })
+
         return { ok: true }
       }),
     rejectAccessClaim: protectedProcedure
@@ -2391,6 +2457,17 @@ export const appRouter = createTRPCRouter({
           role: input.role,
           status: 'pending',
           updatedAt: new Date(),
+        })
+
+        await sendPushNotificationToUsers({
+          userIds: [inviteeProfile.userId],
+          notificationType: 'community_invite_received',
+          title: 'Tienes una invitación nueva',
+          body: `Te han invitado a un grupo en AppRunners.`,
+          data: {
+            communityId: input.communityId,
+            route: '/communities',
+          },
         })
 
         return { ok: true }
@@ -2836,6 +2913,120 @@ export const appRouter = createTRPCRouter({
           return new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime()
         })
     }),
+    upcomingForViewer: protectedProcedure.query(async ({ ctx }) => {
+      const membershipRows = await ctx.db
+        .select({
+          communityId: member.organizationId,
+          role: member.role,
+        })
+        .from(member)
+        .where(eq(member.userId, ctx.user.id))
+
+      if (membershipRows.length === 0) {
+        return []
+      }
+
+      const communityIds = membershipRows.map((row) => row.communityId)
+      const roleByCommunityId = new Map(
+        membershipRows.map((row) => [row.communityId, row.role] as const),
+      )
+
+      const upcomingMeetups = await ctx.db
+        .select({
+          createdByName: user.name,
+          createdByRole: member.role,
+          createdByUserId: meetups.createdByUserId,
+          createdByUsername: profiles.username,
+          id: meetups.id,
+          communityId: communities.organizationId,
+          communityMode: communities.mode,
+          communityName: communities.name,
+          communityVisibility: communities.visibility,
+          distanceKm: meetups.distanceKm,
+          location: meetups.location,
+          startsAt: meetups.startsAt,
+          title: meetups.title,
+          visibility: meetups.visibility,
+        })
+        .from(meetups)
+        .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+        .leftJoin(user, eq(meetups.createdByUserId, user.id))
+        .leftJoin(profiles, eq(meetups.createdByUserId, profiles.userId))
+        .leftJoin(
+          member,
+          and(eq(member.organizationId, communities.organizationId), eq(member.userId, meetups.createdByUserId)),
+        )
+        .where(and(inArray(meetups.communityId, communityIds), gte(meetups.startsAt, new Date())))
+        .orderBy(asc(meetups.startsAt))
+
+      if (upcomingMeetups.length === 0) {
+        return []
+      }
+
+      const visibleMeetups = upcomingMeetups.filter((meetup) =>
+        canViewerSeeMeetup(true, meetup.communityVisibility, meetup.visibility),
+      )
+      const meetupIds = visibleMeetups.map((meetup) => meetup.id)
+
+      const rsvpRows =
+        meetupIds.length > 0
+          ? await ctx.db
+              .select({
+                meetupId: meetupRsvps.meetupId,
+                userId: meetupRsvps.userId,
+              })
+              .from(meetupRsvps)
+              .where(inArray(meetupRsvps.meetupId, meetupIds))
+          : []
+
+      const attendeeRows =
+        meetupIds.length > 0
+          ? await ctx.db
+              .select({
+                meetupId: meetupRsvps.meetupId,
+                name: user.name,
+                userId: meetupRsvps.userId,
+                username: profiles.username,
+              })
+              .from(meetupRsvps)
+              .innerJoin(user, eq(meetupRsvps.userId, user.id))
+              .leftJoin(profiles, eq(meetupRsvps.userId, profiles.userId))
+              .where(inArray(meetupRsvps.meetupId, meetupIds))
+          : []
+
+      return visibleMeetups.map((meetup) => {
+        const meetupRsvpRows = rsvpRows.filter((row) => row.meetupId === meetup.id)
+        const actorRole = getPrimaryRole(roleByCommunityId.get(meetup.communityId) ?? null)
+
+        return {
+          createdByName: meetup.createdByName,
+          createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
+          createdByUsername: meetup.createdByUsername,
+          communityId: meetup.communityId,
+          communityMode: meetup.communityMode,
+          communityName: meetup.communityName,
+          distanceKm: meetup.distanceKm,
+          id: meetup.id,
+          location: meetup.location,
+          rsvpCount: meetupRsvpRows.length,
+          startsAt: meetup.startsAt,
+          title: meetup.title,
+          attendees: attendeeRows
+            .filter((attendee) => attendee.meetupId === meetup.id)
+            .map((attendee) => ({
+              name: attendee.name,
+              userId: attendee.userId,
+              username: attendee.username,
+            })),
+          viewerCanManage: canManageCommunityMeetup(
+            actorRole,
+            ctx.user.id,
+            meetup.createdByUserId,
+          ),
+          viewerIsGoing: meetupRsvpRows.some((row) => row.userId === ctx.user.id),
+        }
+      })
+    }),
     editableById: protectedProcedure
       .input(
         z.object({
@@ -2928,6 +3119,23 @@ export const appRouter = createTRPCRouter({
           })
           .returning()
 
+        const memberUserIds = withoutActor(
+          await getCommunityMemberUserIds(ctx, input.communityId),
+          ctx.user.id,
+        )
+
+        await sendPushNotificationToUsers({
+          userIds: memberUserIds,
+          notificationType: 'meetup_created',
+          title: 'Nueva quedada en tu grupo',
+          body: `${input.title} · ${input.location}`,
+          data: {
+            communityId: input.communityId,
+            meetupId: createdMeetup.id,
+            route: `/crew/${input.communityId}`,
+          },
+        })
+
         return createdMeetup
       }),
     update: protectedProcedure
@@ -2995,6 +3203,26 @@ export const appRouter = createTRPCRouter({
           .where(eq(meetups.id, input.meetupId))
           .returning()
 
+        const targetUserIds = withoutActor(
+          dedupeUserIds([
+            ...(await getCommunityMemberUserIds(ctx, meetup.communityId)),
+            ...(await getMeetupAttendeeUserIds(ctx, input.meetupId)),
+          ]),
+          ctx.user.id,
+        )
+
+        await sendPushNotificationToUsers({
+          userIds: targetUserIds,
+          notificationType: 'meetup_updated',
+          title: 'Se ha actualizado una quedada',
+          body: `${input.title} · ${input.location}`,
+          data: {
+            communityId: meetup.communityId,
+            meetupId: input.meetupId,
+            route: `/crew/${meetup.communityId}`,
+          },
+        })
+
         return updatedMeetup
       }),
     cancel: protectedProcedure
@@ -3029,7 +3257,27 @@ export const appRouter = createTRPCRouter({
           })
         }
 
+        const targetUserIds = withoutActor(
+          dedupeUserIds([
+            ...(await getCommunityMemberUserIds(ctx, meetup.communityId)),
+            ...(await getMeetupAttendeeUserIds(ctx, input.meetupId)),
+          ]),
+          ctx.user.id,
+        )
+
         await ctx.db.delete(meetups).where(eq(meetups.id, input.meetupId))
+
+        await sendPushNotificationToUsers({
+          userIds: targetUserIds,
+          notificationType: 'meetup_cancelled',
+          title: 'Se ha cancelado una quedada',
+          body: 'Revisa el grupo para ver el resto de planes disponibles.',
+          data: {
+            communityId: meetup.communityId,
+            meetupId: input.meetupId,
+            route: `/crew/${meetup.communityId}`,
+          },
+        })
 
         return { ok: true }
       }),
@@ -3105,6 +3353,91 @@ export const appRouter = createTRPCRouter({
 
         return { ok: true }
       }),
+  }),
+  notifications: createTRPCRouter({
+    registerDevice: protectedProcedure
+      .input(
+        z.object({
+          expoPushToken: z.string().min(8),
+          platform: z.enum(['ios', 'android', 'web', 'unknown']).default('unknown'),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const [existingDevice] = await ctx.db
+          .select({
+            id: userPushDevices.id,
+          })
+          .from(userPushDevices)
+          .where(eq(userPushDevices.expoPushToken, input.expoPushToken))
+          .limit(1)
+
+        if (existingDevice) {
+          await ctx.db
+            .update(userPushDevices)
+            .set({
+              userId: ctx.user.id,
+              platform: input.platform,
+              isActive: true,
+              lastSeenAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(userPushDevices.id, existingDevice.id))
+
+          return { ok: true, deviceId: existingDevice.id }
+        }
+
+        const deviceId = randomUUID()
+
+        await ctx.db.insert(userPushDevices).values({
+          id: deviceId,
+          userId: ctx.user.id,
+          expoPushToken: input.expoPushToken,
+          platform: input.platform,
+          isActive: true,
+          lastSeenAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+
+        return { ok: true, deviceId }
+      }),
+    unregisterDevice: protectedProcedure
+      .input(
+        z.object({
+          expoPushToken: z.string().min(8),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        await ctx.db
+          .update(userPushDevices)
+          .set({
+            isActive: false,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(userPushDevices.userId, ctx.user.id),
+              eq(userPushDevices.expoPushToken, input.expoPushToken),
+            ),
+          )
+
+        return { ok: true }
+      }),
+    recentDeliveries: protectedProcedure.query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          body: notificationDeliveries.body,
+          createdAt: notificationDeliveries.createdAt,
+          id: notificationDeliveries.id,
+          notificationType: notificationDeliveries.notificationType,
+          status: notificationDeliveries.status,
+          title: notificationDeliveries.title,
+        })
+        .from(notificationDeliveries)
+        .where(eq(notificationDeliveries.userId, ctx.user.id))
+        .orderBy(desc(notificationDeliveries.createdAt))
+        .limit(20)
+    }),
   }),
   profile: createTRPCRouter({
     me: protectedProcedure.query(async ({ ctx }) => {
