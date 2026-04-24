@@ -203,7 +203,7 @@ export default function ProfileEditScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.flex}>
-      <ScreenScroll contentStyle={{ paddingBottom: bottomPad }}>
+      <ScreenScroll title="Editar perfil" contentStyle={{ paddingBottom: bottomPad }}>
         <View className="gap-2">
           <Text className="text-xs font-black uppercase tracking-[1.1px] text-tint">
             Tu perfil runner

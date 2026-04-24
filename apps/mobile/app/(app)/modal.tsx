@@ -6,7 +6,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { z } from 'zod';
 
 import { useAppTheme } from '@/components/ThemeContext';
-import { Chip } from '@/components/ui/AppUI';
+import { Chip, ScreenHeader } from '@/components/ui/AppUI';
 import {
   createMeetupBody,
   createMeetupCtaLabel,
@@ -176,8 +176,10 @@ export default function ModalScreen() {
   const isSubmitting = createMeetup.isPending || updateMeetup.isPending;
 
   return (
+    <View className="flex-1 bg-background">
+    <ScreenHeader title={isEditing ? 'Editar quedada' : 'Nueva salida'} />
     <ScrollView
-      className="flex-1 bg-background"
+      className="flex-1"
       showsVerticalScrollIndicator={false}
       contentContainerClassName="justify-center p-[18px]">
       <View className="rounded-[32px] border border-border bg-surface p-[22px]">
@@ -334,6 +336,7 @@ export default function ModalScreen() {
 
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
     </ScrollView>
+    </View>
   );
 }
 

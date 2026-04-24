@@ -110,7 +110,7 @@ export default function CommunityNewScreen() {
   });
 
   return (
-    <ScreenScroll>
+    <ScreenScroll title="Crear grupo">
       <AppCard>
         <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Crear grupo</Text>
         <Text className="text-[30px] font-black leading-9 text-text">Crea el grupo con lo básico.</Text>

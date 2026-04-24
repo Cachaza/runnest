@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
+import { Link, useLocalSearchParams } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
 
 import { usePullToRefresh } from '@/components/usePullToRefresh';
 import { AppCard, Chip, EmptyState, HeroPanel, ScreenScroll, SectionHeader } from '@/components/ui/AppUI';
@@ -87,7 +87,7 @@ export default function PublicRunnerScreen() {
 
   if (runnerQuery.error) {
     return (
-      <ScreenScroll onRefresh={username ? onRefresh : undefined} refreshing={refreshing}>
+      <ScreenScroll title="Runner" onRefresh={username ? onRefresh : undefined} refreshing={refreshing}>
         <AppCard>
           <Text className="text-[25px] font-black text-text">Perfil no disponible</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">{runnerQuery.error.message}</Text>
@@ -133,15 +133,19 @@ export default function PublicRunnerScreen() {
       ) : null}
 
       {runnerQuery.data?.upcomingMeetups.map((meetup) => (
-        <AppCard key={meetup.id}>
-          <Text className="text-xs font-black uppercase tracking-[1px] text-tint">
-            {formatMeetupLabel(meetup.startsAt)}
-          </Text>
-          <Text className="text-[22px] font-black text-text">{meetup.title}</Text>
-          <Text className="text-[15px] leading-[23px] text-muted-text">
-            {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
-          </Text>
-        </AppCard>
+        <Link key={meetup.id} href={`/meetup/${meetup.id}` as any} asChild>
+          <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+            <AppCard>
+              <Text className="text-xs font-black uppercase tracking-[1px] text-tint">
+                {formatMeetupLabel(meetup.startsAt)}
+              </Text>
+              <Text className="text-[22px] font-black text-text">{meetup.title}</Text>
+              <Text className="text-[15px] leading-[23px] text-muted-text">
+                {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
+              </Text>
+            </AppCard>
+          </Pressable>
+        </Link>
       ))}
     </ScreenScroll>
   );

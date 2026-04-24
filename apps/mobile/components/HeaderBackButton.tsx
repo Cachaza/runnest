@@ -15,15 +15,10 @@ export function HeaderBackButton({ onPress }: HeaderBackButtonProps) {
       accessibilityLabel="Volver"
       hitSlop={10}
       onPress={onPress}
-      style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
-      <View
-        className="flex-row items-center gap-2 rounded-full border px-3 py-2"
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-        }}>
-        <FontAwesome6 name="chevron-left" size={13} color={colors.text} />
-        <Text className="text-xs font-black uppercase tracking-[0.6px] text-text">Volver</Text>
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      <View className="flex-row items-center gap-1.5 px-1 py-1">
+        <FontAwesome6 name="chevron-left" size={14} color={colors.tint} />
+        <Text className="text-[14px] font-black text-tint">Volver</Text>
       </View>
     </Pressable>
   );

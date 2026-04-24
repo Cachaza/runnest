@@ -363,20 +363,25 @@ function AgendaSection({
     <>
       <SectionHeader title="Próximas quedadas" />
       {meetups.map((meetup) => (
-        <AppCard key={meetup.id}>
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-xs font-black uppercase tracking-[1px] text-tint">
-                {formatMeetupLabel(meetup.startsAt)}
-              </Text>
-              <Text className="mt-0.5 text-[20px] font-black text-text">{meetup.title}</Text>
-              <Text className="mt-0.5 text-[14px] leading-[21px] text-muted-text">
-                {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
-              </Text>
+        <Pressable
+          key={meetup.id}
+          onPress={() => router.push(`/meetup/${meetup.id}` as any)}
+          style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+          <AppCard>
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="flex-1">
+                <Text className="text-xs font-black uppercase tracking-[1px] text-tint">
+                  {formatMeetupLabel(meetup.startsAt)}
+                </Text>
+                <Text className="mt-0.5 text-[20px] font-black text-text">{meetup.title}</Text>
+                <Text className="mt-0.5 text-[14px] leading-[21px] text-muted-text">
+                  {meetup.communityName} · {meetup.distanceKm} km · {meetup.location}
+                </Text>
+              </View>
+              <FontAwesome6 name="person-running" size={18} color="#745F48" />
             </View>
-            <FontAwesome6 name="person-running" size={18} color="#745F48" />
-          </View>
-        </AppCard>
+          </AppCard>
+        </Pressable>
       ))}
     </>
   );

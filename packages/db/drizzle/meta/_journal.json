@@ -36,6 +36,20 @@
       "when": 1776916800000,
       "tag": "0004_parallel_sif",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776998400000,
+      "tag": "0005_meetup_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777084800000,
+      "tag": "0006_meetup_message_replies_backfill",
+      "breakpoints": true
     }
   ]
 }

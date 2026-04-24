@@ -516,7 +516,7 @@ export default function CrewDetailScreen() {
 
   if (communityQuery.error) {
     return (
-      <ScreenScroll onRefresh={communityId ? onRefresh : undefined} refreshing={refreshing}>
+      <ScreenScroll title="Grupo" onRefresh={communityId ? onRefresh : undefined} refreshing={refreshing}>
         <AppCard>
           <Text className="text-[25px] font-black text-text">Comunidad no disponible</Text>
           <Text className="text-[15px] leading-[23px] text-muted-text">{communityQuery.error.message}</Text>
@@ -1262,6 +1262,7 @@ type MeetupRowProps = {
     startsAt: string | Date;
     distanceKm: number;
     location: string;
+    messageCount?: number;
     rsvpCount: number;
     viewerCanManage?: boolean;
     viewerIsMember?: boolean;
@@ -1391,18 +1392,27 @@ function MeetupRow({
           ) : null}
           <View className="mt-0.5 flex-row items-center justify-between gap-3">
             <Text className="text-[12px] font-bold text-muted-text">
-              {meetup.rsvpCount} apuntados
+              {meetup.rsvpCount} apuntados · {meetup.messageCount ?? 0} comentarios
             </Text>
-            <Pressable
-              disabled={disabled}
-              onPress={() => onRsvp(meetup.id, meetup.viewerIsGoing)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
-              className={`rounded-full px-3 py-1.5 ${meetup.viewerIsGoing ? 'bg-chip' : 'bg-tint'}`}>
-              <Text
-                className={`text-[12px] font-black ${meetup.viewerIsGoing ? 'text-text' : 'text-on-tint'}`}>
-                {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
-              </Text>
-            </Pressable>
+            <View className="flex-row gap-2">
+              <Pressable
+                disabled={disabled}
+                onPress={() => router.push(`/meetup/${meetup.id}` as any)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
+                className="rounded-full bg-chip px-3 py-1.5">
+                <Text className="text-[12px] font-black text-text">Ver</Text>
+              </Pressable>
+              <Pressable
+                disabled={disabled}
+                onPress={() => onRsvp(meetup.id, meetup.viewerIsGoing)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
+                className={`rounded-full px-3 py-1.5 ${meetup.viewerIsGoing ? 'bg-chip' : 'bg-tint'}`}>
+                <Text
+                  className={`text-[12px] font-black ${meetup.viewerIsGoing ? 'text-text' : 'text-on-tint'}`}>
+                  {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>

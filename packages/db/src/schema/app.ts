@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   doublePrecision,
   index,
@@ -141,6 +142,39 @@ export const meetupRsvps = pgTable(
   },
   (table) => ({
     meetupUserIndex: uniqueIndex('meetup_rsvps_meetup_user_idx').on(table.meetupId, table.userId),
+  }),
+)
+
+export const meetupMessages = pgTable(
+  'meetup_messages',
+  {
+    id: integer().generatedAlwaysAsIdentity().primaryKey(),
+    meetupId: integer('meetup_id')
+      .references(() => meetups.id, { onDelete: 'cascade' })
+      .notNull(),
+    communityId: text('community_id')
+      .notNull()
+      .references(() => communities.organizationId, { onDelete: 'cascade' }),
+    authorUserId: text('author_user_id')
+      .references(() => user.id, { onDelete: 'set null' }),
+    replyToMessageId: integer('reply_to_message_id').references(
+      (): AnyPgColumn => meetupMessages.id,
+      { onDelete: 'set null' },
+    ),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    meetupCreatedAtIndex: index('meetup_messages_meetup_created_at_idx').on(
+      table.meetupId,
+      table.createdAt,
+    ),
+    communityCreatedAtIndex: index('meetup_messages_community_created_at_idx').on(
+      table.communityId,
+      table.createdAt,
+    ),
   }),
 )
 

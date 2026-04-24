@@ -142,11 +142,11 @@ export default function TodayScreen() {
                 Quién viene: {nextMeetup.attendees.map((attendee) => attendee.username ? `@${attendee.username}` : attendee.name).join(', ')}
               </Text>
             ) : null}
-            <Link href={`/crew/${nextMeetup.communityId}` as any} asChild>
+            <Link href={`/meetup/${nextMeetup.id}` as any} asChild>
               <Pressable
                 style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
                 className="mt-2 items-center rounded-2xl bg-hero-accent py-3.5">
-                <Text className="text-[15px] font-black text-on-accent">Abrir grupo</Text>
+                <Text className="text-[15px] font-black text-on-accent">Abrir quedada</Text>
               </Pressable>
             </Link>
           </>

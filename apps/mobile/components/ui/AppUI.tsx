@@ -1,4 +1,5 @@
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { useNavigation } from '@react-navigation/native';
 import { PropsWithChildren, ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +26,7 @@ type ScreenScrollProps = PropsWithChildren<
     contentStyle?: StyleProp<ViewStyle>;
     onRefresh?: () => void;
     refreshing?: boolean;
+    title?: string;
   }
 >;
 
@@ -59,6 +61,42 @@ type AppButtonProps = Omit<PressableProps, 'style'> & {
   tone?: 'primary' | 'secondary' | 'danger';
 };
 
+export function ScreenHeader({ title }: { title: string }) {
+  const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const canGoBack = navigation.canGoBack();
+
+  return (
+    <View style={{ paddingTop: insets.top }} className="bg-background">
+      <View className="h-11 flex-row items-center justify-center px-4">
+        {canGoBack ? (
+          <Pressable
+            accessibilityLabel="Volver"
+            hitSlop={10}
+            onPress={() => navigation.goBack()}
+            className="absolute left-4"
+            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+            <View
+              className="flex-row items-center gap-2 rounded-full border px-3 py-2"
+              style={{ backgroundColor: colors.surface, borderColor: colors.tint }}>
+              <FontAwesome6 name="chevron-left" size={13} color={colors.tint} />
+              <Text
+                className="text-xs font-black uppercase tracking-[0.6px]"
+                style={{ color: colors.tint }}>
+                Volver
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+        <Text className="text-[17px] font-bold text-text" numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export function ScreenScroll({
   children,
   contentStyle,
@@ -66,30 +104,50 @@ export function ScreenScroll({
   refreshControl,
   refreshing = false,
   style,
+  title,
   ...props
 }: ScreenScrollProps) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
 
+  const refreshControlEl =
+    refreshControl ??
+    (onRefresh ? (
+      <RefreshControl
+        colors={[colors.tint]}
+        onRefresh={onRefresh}
+        progressBackgroundColor={colors.surface}
+        refreshing={refreshing}
+        tintColor={colors.tint}
+      />
+    ) : undefined);
+
+  if (title !== undefined) {
+    return (
+      <View className="flex-1 bg-background" style={style}>
+        <ScreenHeader title={title} />
+        <ScrollView
+          alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControlEl)}
+          className="flex-1"
+          contentContainerClassName="gap-4 px-[18px] pb-[140px]"
+          contentContainerStyle={[{ paddingTop: 8 }, contentStyle]}
+          refreshControl={refreshControlEl}
+          showsVerticalScrollIndicator={false}
+          {...props}>
+          {children}
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
-      alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControl)}
+      alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControlEl)}
       className="flex-1 bg-background"
       style={style}
       contentContainerClassName="gap-4 px-[18px] pb-[140px]"
       contentContainerStyle={[{ paddingTop: Math.max(insets.top + 8, 18) }, contentStyle]}
-      refreshControl={
-        refreshControl ??
-        (onRefresh ? (
-          <RefreshControl
-            colors={[colors.tint]}
-            onRefresh={onRefresh}
-            progressBackgroundColor={colors.surface}
-            refreshing={refreshing}
-            tintColor={colors.tint}
-          />
-        ) : undefined)
-      }
+      refreshControl={refreshControlEl}
       showsVerticalScrollIndicator={false}
       {...props}>
       {children}

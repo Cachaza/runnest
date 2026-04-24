@@ -408,28 +408,48 @@ export default function CommunitiesScreen() {
                       <Text style={[styles.rsvpMeta, { color: colors.heroTextMuted }]}>
                         {meetup.rsvpCount} apuntados
                       </Text>
-                      <Pressable
-                        disabled={isMutatingRsvp || !session}
-                        onPress={() => handleMeetupAction(meetup.id, meetup.viewerIsGoing)}
-                        style={({ pressed }) => [
-                          styles.rsvpButton,
-                          {
-                            backgroundColor: meetup.viewerIsGoing
-                              ? isDark
-                                ? 'rgba(255,243,228,0.12)'
-                                : 'rgba(255,248,236,0.16)'
-                              : colors.tint,
-                            opacity: pressed ? 0.7 : isMutatingRsvp || !session ? 0.7 : 1,
-                          },
-                        ]}>
-                        <Text
-                          style={[
-                            styles.rsvpButtonText,
-                            { color: meetup.viewerIsGoing ? colors.heroText : colors.onTint },
+                      <View className="flex-row gap-2">
+                        {session ? (
+                          <Link href={`/meetup/${meetup.id}` as any} asChild>
+                            <Pressable
+                              style={({ pressed }) => [
+                                styles.rsvpButton,
+                                {
+                                  backgroundColor: isDark
+                                    ? 'rgba(255,243,228,0.12)'
+                                    : 'rgba(255,248,236,0.16)',
+                                  opacity: pressed ? 0.7 : 1,
+                                },
+                              ]}>
+                              <Text style={[styles.rsvpButtonText, { color: colors.heroText }]}>
+                                Ver
+                              </Text>
+                            </Pressable>
+                          </Link>
+                        ) : null}
+                        <Pressable
+                          disabled={isMutatingRsvp || !session}
+                          onPress={() => handleMeetupAction(meetup.id, meetup.viewerIsGoing)}
+                          style={({ pressed }) => [
+                            styles.rsvpButton,
+                            {
+                              backgroundColor: meetup.viewerIsGoing
+                                ? isDark
+                                  ? 'rgba(255,243,228,0.12)'
+                                  : 'rgba(255,248,236,0.16)'
+                                : colors.tint,
+                              opacity: pressed ? 0.7 : isMutatingRsvp || !session ? 0.7 : 1,
+                            },
                           ]}>
-                          {meetup.viewerIsGoing ? 'Salgo' : 'Me apunto'}
-                        </Text>
-                      </Pressable>
+                          <Text
+                            style={[
+                              styles.rsvpButtonText,
+                              { color: meetup.viewerIsGoing ? colors.heroText : colors.onTint },
+                            ]}>
+                            {meetup.viewerIsGoing ? 'Salgo' : 'Me apunto'}
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
                   </View>
                 );

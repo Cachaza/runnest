@@ -51,7 +51,7 @@ export default function CommunityAccessScreen() {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll title="Entrar con código">
       <AppCard>
         <Text className="text-xs font-black uppercase tracking-[1px] text-tint">Entrar con código</Text>
         <Text className="text-[30px] font-black leading-9 text-text">Pega el código que te pasaron.</Text>

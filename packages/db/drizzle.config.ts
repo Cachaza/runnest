@@ -23,7 +23,10 @@ export default defineConfig({
     'community_access_link_claims',
     'community_user_invites',
     'meetups',
+    'meetup_messages',
     'meetup_rsvps',
+    'user_push_devices',
+    'notification_deliveries',
   ],
   dbCredentials: {
     url: process.env.DATABASE_URL ?? 'postgres://apprunners:apprunners@localhost:5433/apprunners',

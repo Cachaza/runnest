@@ -76,7 +76,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll title="Ajustes">
       <AppCard>
         <Text className="text-[25px] font-black text-text">Apariencia</Text>
         <View className="mt-4 flex-row items-center justify-between">

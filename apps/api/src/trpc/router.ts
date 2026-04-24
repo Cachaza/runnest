@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { TRPCError } from '@trpc/server'
-import { and, asc, desc, eq, gte, ilike, inArray, or } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import {
@@ -11,6 +11,7 @@ import {
   communityBlocks,
   communityJoinRequests,
   communityUserInvites,
+  meetupMessages,
   meetups,
   meetupRsvps,
   member,
@@ -763,6 +764,72 @@ async function getMeetupAttendeeUserIds(
   return rows.map((row) => row.userId)
 }
 
+async function getMeetupCommentAccess(
+  ctx: {
+    db: typeof import('@apprunners/db').db
+    user: { id: string }
+  },
+  meetupId: number,
+) {
+  const [meetup] = await ctx.db
+    .select({
+      communityId: communities.organizationId,
+      communityName: communities.name,
+      communityVisibility: communities.visibility,
+      meetupId: meetups.id,
+      meetupTitle: meetups.title,
+      meetupVisibility: meetups.visibility,
+    })
+    .from(meetups)
+    .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+    .where(eq(meetups.id, meetupId))
+    .limit(1)
+
+  if (!meetup) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+  }
+
+  if (await isUserBlockedInCommunity(ctx, meetup.communityId, ctx.user.id)) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'No puedes comentar en esta quedada.',
+    })
+  }
+
+  const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+  const canSeeMeetup = canViewerSeeMeetup(
+    Boolean(membership),
+    meetup.communityVisibility,
+    meetup.meetupVisibility,
+  )
+
+  if (!canSeeMeetup) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Necesitas acceso a la quedada para ver sus comentarios.',
+    })
+  }
+
+  const [attendee] = await ctx.db
+    .select({ id: meetupRsvps.id })
+    .from(meetupRsvps)
+    .where(and(eq(meetupRsvps.meetupId, meetupId), eq(meetupRsvps.userId, ctx.user.id)))
+    .limit(1)
+
+  if (!membership && !attendee) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Apúntate a la quedada para participar en la conversación.',
+    })
+  }
+
+  return {
+    ...meetup,
+    viewerIsAttendee: Boolean(attendee),
+    viewerIsMember: Boolean(membership),
+  }
+}
+
 const usernameSchema = z
   .string()
   .trim()
@@ -1165,6 +1232,16 @@ export const appRouter = createTRPCRouter({
                 .leftJoin(profiles, eq(meetupRsvps.userId, profiles.userId))
                 .where(inArray(meetupRsvps.meetupId, meetupIds))
             : []
+        const meetupMessageRows =
+          meetupIds.length > 0 && ctx.user
+            ? await ctx.db
+                .select({
+                  id: meetupMessages.id,
+                  meetupId: meetupMessages.meetupId,
+                })
+                .from(meetupMessages)
+                .where(and(inArray(meetupMessages.meetupId, meetupIds), isNull(meetupMessages.deletedAt)))
+            : []
 
         const activeMembers = await ctx.db
           .select({
@@ -1464,6 +1541,7 @@ export const appRouter = createTRPCRouter({
                     }))
                 : [],
               createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
+              messageCount: meetupMessageRows.filter((message) => message.meetupId === meetup.id).length,
               rsvpCount: meetupRsvpRows.length,
               viewerCanManage: viewerCanManageMeetup,
               viewerIsMember: Boolean(viewerMembership),
@@ -3027,6 +3105,245 @@ export const appRouter = createTRPCRouter({
         }
       })
     }),
+    messages: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        await getMeetupCommentAccess(ctx, input.meetupId)
+
+        const messageRows = await ctx.db
+          .select({
+            authorName: user.name,
+            authorUserId: meetupMessages.authorUserId,
+            authorUsername: profiles.username,
+            body: meetupMessages.body,
+            createdAt: meetupMessages.createdAt,
+            id: meetupMessages.id,
+            replyToMessageId: meetupMessages.replyToMessageId,
+          })
+          .from(meetupMessages)
+          .leftJoin(user, eq(meetupMessages.authorUserId, user.id))
+          .leftJoin(profiles, eq(meetupMessages.authorUserId, profiles.userId))
+          .where(and(eq(meetupMessages.meetupId, input.meetupId), isNull(meetupMessages.deletedAt)))
+          .orderBy(asc(meetupMessages.createdAt))
+
+        const replyMessageIds = Array.from(
+          new Set(
+            messageRows
+              .map((message) => message.replyToMessageId)
+              .filter((messageId): messageId is number => Boolean(messageId)),
+          ),
+        )
+        const replyRows =
+          replyMessageIds.length > 0
+            ? await ctx.db
+                .select({
+                  authorName: user.name,
+                  authorUsername: profiles.username,
+                  body: meetupMessages.body,
+                  id: meetupMessages.id,
+                })
+                .from(meetupMessages)
+                .leftJoin(user, eq(meetupMessages.authorUserId, user.id))
+                .leftJoin(profiles, eq(meetupMessages.authorUserId, profiles.userId))
+                .where(and(inArray(meetupMessages.id, replyMessageIds), isNull(meetupMessages.deletedAt)))
+            : []
+        const replyById = new Map(replyRows.map((reply) => [reply.id, reply] as const))
+
+        return messageRows.map((message) => {
+          const reply = message.replyToMessageId ? replyById.get(message.replyToMessageId) : null
+
+          return {
+            ...message,
+            replyTo: reply
+              ? {
+                  authorName: reply.authorName,
+                  authorUsername: reply.authorUsername,
+                  body: reply.body,
+                  id: reply.id,
+                }
+              : null,
+            viewerIsAuthor: message.authorUserId === ctx.user.id,
+          }
+        })
+      }),
+    sendMessage: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+          body: z.string().trim().min(1).max(500),
+          replyToMessageId: z.number().int().positive().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const access = await getMeetupCommentAccess(ctx, input.meetupId)
+        const body = input.body.trim()
+
+        if (input.replyToMessageId) {
+          const [replyToMessage] = await ctx.db
+            .select({ id: meetupMessages.id })
+            .from(meetupMessages)
+            .where(
+              and(
+                eq(meetupMessages.id, input.replyToMessageId),
+                eq(meetupMessages.meetupId, input.meetupId),
+                isNull(meetupMessages.deletedAt),
+              ),
+            )
+            .limit(1)
+
+          if (!replyToMessage) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'No se puede responder a ese comentario.',
+            })
+          }
+        }
+
+        const [createdMessage] = await ctx.db
+          .insert(meetupMessages)
+          .values({
+            authorUserId: ctx.user.id,
+            body,
+            communityId: access.communityId,
+            meetupId: input.meetupId,
+            replyToMessageId: input.replyToMessageId ?? null,
+          })
+          .returning()
+
+        const [author] = await ctx.db
+          .select({
+            name: user.name,
+            username: profiles.username,
+          })
+          .from(user)
+          .leftJoin(profiles, eq(user.id, profiles.userId))
+          .where(eq(user.id, ctx.user.id))
+          .limit(1)
+
+        const targetUserIds = withoutActor(
+          dedupeUserIds([
+            ...(await getCommunityMemberUserIds(ctx, access.communityId)),
+            ...(await getMeetupAttendeeUserIds(ctx, input.meetupId)),
+          ]),
+          ctx.user.id,
+        )
+        const authorLabel = author?.username ? `@${author.username}` : author?.name ?? 'Runner'
+
+        await sendPushNotificationToUsers({
+          userIds: targetUserIds,
+          notificationType: 'meetup_message_created',
+          title: `Comentario en ${access.meetupTitle}`,
+          body: `${authorLabel}: ${body}`,
+          data: {
+            communityId: access.communityId,
+            meetupId: input.meetupId,
+            messageId: createdMessage.id,
+            route: `/crew/${access.communityId}`,
+          },
+        })
+
+        return createdMessage
+      }),
+    byId: protectedProcedure
+      .input(
+        z.object({
+          meetupId: z.number().int().positive(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const [meetup] = await ctx.db
+          .select({
+            communityId: communities.organizationId,
+            communityKind: communities.kind,
+            communityMode: communities.mode,
+            communityName: communities.name,
+            communityVisibility: communities.visibility,
+            createdByName: user.name,
+            createdByRole: member.role,
+            createdByUserId: meetups.createdByUserId,
+            createdByUsername: profiles.username,
+            distanceKm: meetups.distanceKm,
+            id: meetups.id,
+            location: meetups.location,
+            locationLat: meetups.locationLat,
+            locationLng: meetups.locationLng,
+            startsAt: meetups.startsAt,
+            title: meetups.title,
+            visibility: meetups.visibility,
+          })
+          .from(meetups)
+          .innerJoin(communities, eq(meetups.communityId, communities.organizationId))
+          .leftJoin(user, eq(meetups.createdByUserId, user.id))
+          .leftJoin(profiles, eq(meetups.createdByUserId, profiles.userId))
+          .leftJoin(
+            member,
+            and(eq(member.organizationId, communities.organizationId), eq(member.userId, meetups.createdByUserId)),
+          )
+          .where(eq(meetups.id, input.meetupId))
+          .limit(1)
+
+        if (!meetup) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'No existe esa quedada.' })
+        }
+
+        if (await isUserBlockedInCommunity(ctx, meetup.communityId, ctx.user.id)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'No puedes abrir esta quedada.',
+          })
+        }
+
+        const membership = await getMembershipForUser(ctx, meetup.communityId, ctx.user.id)
+
+        if (!canViewerSeeMeetup(Boolean(membership), meetup.communityVisibility, meetup.visibility)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Necesitas acceso a la comunidad para abrir esta quedada.',
+          })
+        }
+
+        const [rsvpRows, attendeeRows, messageRows] = await Promise.all([
+          ctx.db
+            .select({
+              meetupId: meetupRsvps.meetupId,
+              userId: meetupRsvps.userId,
+            })
+            .from(meetupRsvps)
+            .where(eq(meetupRsvps.meetupId, input.meetupId)),
+          ctx.db
+            .select({
+              name: user.name,
+              userId: meetupRsvps.userId,
+              username: profiles.username,
+            })
+            .from(meetupRsvps)
+            .innerJoin(user, eq(meetupRsvps.userId, user.id))
+            .leftJoin(profiles, eq(meetupRsvps.userId, profiles.userId))
+            .where(eq(meetupRsvps.meetupId, input.meetupId)),
+          ctx.db
+            .select({
+              id: meetupMessages.id,
+            })
+            .from(meetupMessages)
+            .where(and(eq(meetupMessages.meetupId, input.meetupId), isNull(meetupMessages.deletedAt))),
+        ])
+        const actorRole = getPrimaryRole(membership?.role)
+
+        return {
+          ...meetup,
+          attendees: membership ? attendeeRows : [],
+          createdByPrimaryRole: getPrimaryRole(meetup.createdByRole),
+          messageCount: messageRows.length,
+          rsvpCount: rsvpRows.length,
+          viewerCanManage: canManageCommunityMeetup(actorRole, ctx.user.id, meetup.createdByUserId),
+          viewerIsGoing: rsvpRows.some((row) => row.userId === ctx.user.id),
+          viewerIsMember: Boolean(membership),
+        }
+      }),
     editableById: protectedProcedure
       .input(
         z.object({
