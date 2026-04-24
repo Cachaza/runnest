@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.27.0",
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "turbo build",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "db:migrate": "pnpm --filter @apprunners/api db:migrate",
@@ -11,11 +11,13 @@
     "db:seed": "pnpm --filter @apprunners/db db:seed",
     "db:studio": "pnpm --filter @apprunners/db db:studio",
     "db:up": "docker compose up -d",
-    "dev": "sh -c 'pnpm dev:api & api_pid=$!; trap \"kill $api_pid 2>/dev/null\" EXIT INT TERM; pnpm dev:mobile'",
-    "dev:api": "pnpm --filter @apprunners/api dev",
-    "dev:mobile": "pnpm --filter @apprunners/mobile start -- --go"
+    "dev": "turbo dev --filter=@apprunners/api --filter=@apprunners/mobile",
+    "dev:api": "turbo dev --filter=@apprunners/api",
+    "dev:landing": "turbo dev --filter=@apprunners/landing",
+    "dev:mobile": "turbo dev --filter=@apprunners/mobile"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "turbo": "^2.9.6"
   }
 }

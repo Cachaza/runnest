@@ -1,0 +1,410 @@
+---
+const contactHref = 'mailto:hola@apprunners.app?subject=Quiero%20probar%20AppRunners';
+const appPreviewStats = [
+  ['12', 'apuntados'],
+  ['7:30', 'domingo'],
+  ['8 km', 'ritmo suave'],
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="AppRunners ayuda a grupos reales de runners a organizar quedadas, confirmar asistencia e invitar a gente nueva sin perderse en chats."
+    />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>AppRunners | Quedadas de running sin ruido</title>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="hero__content">
+          <p class="eyebrow">Para grupos reales de runners</p>
+          <h1>AppRunners</h1>
+          <p class="lead">
+            Organiza quedadas, confirma quién viene e invita a nuevos corredores sin convertir cada salida en un hilo infinito.
+          </p>
+          <div class="actions" aria-label="Acciones principales">
+            <a class="button button--primary" href={contactHref}>Pedir acceso</a>
+            <a class="button button--secondary" href="#como-funciona">Ver cómo funciona</a>
+          </div>
+        </div>
+
+        <div class="phone" aria-label="Vista previa de una quedada en AppRunners">
+          <div class="phone__status">
+            <span>AppRunners</span>
+            <span>Dom</span>
+          </div>
+          <div class="meetup">
+            <p class="meetup__label">Próxima quedada</p>
+            <h2>Salida por el río</h2>
+            <p>Domingo · 7:30 · Parque Grande</p>
+            <div class="stats">
+              {appPreviewStats.map(([value, label]) => (
+                <div class="stat">
+                  <strong>{value}</strong>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+            <div class="runners" aria-label="Corredores apuntados">
+              <span>AN</span>
+              <span>MR</span>
+              <span>LC</span>
+              <span>+9</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="como-funciona" class="section">
+        <div class="section__header">
+          <p class="eyebrow">Menos fricción que WhatsApp</p>
+          <h2>Lo necesario para que el grupo salga a correr</h2>
+        </div>
+        <div class="features">
+          <article>
+            <span class="icon">01</span>
+            <h3>Crea la quedada</h3>
+            <p>Distancia, punto de salida, hora y ritmo en una vista clara que cualquiera puede revisar.</p>
+          </article>
+          <article>
+            <span class="icon">02</span>
+            <h3>Confirma asistencia</h3>
+            <p>El grupo ve al instante quién viene, sin contar mensajes ni reacciones dispersas.</p>
+          </article>
+          <article>
+            <span class="icon">03</span>
+            <h3>Invita fácil</h3>
+            <p>Un código permite meter a alguien nuevo en el grupo antes de la próxima salida.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div>
+          <p class="eyebrow">Primeros grupos</p>
+          <h2>Estamos abriendo acceso a grupos pequeños.</h2>
+        </div>
+        <a class="button button--primary" href={contactHref}>Quiero probarlo</a>
+      </section>
+    </main>
+  </body>
+</html>
+
+<style>
+  :root {
+    color-scheme: light;
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+    background: #f7f3ec;
+    color: #17201b;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background:
+      linear-gradient(140deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0) 44%),
+      #f7f3ec;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  main {
+    overflow: hidden;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+    gap: clamp(2rem, 7vw, 6rem);
+    align-items: center;
+    min-height: 88vh;
+    padding: clamp(2rem, 5vw, 4.5rem);
+    padding-bottom: clamp(3.5rem, 7vw, 6rem);
+    border-bottom: 1px solid rgba(23, 32, 27, 0.12);
+  }
+
+  .hero__content {
+    max-width: 720px;
+  }
+
+  .eyebrow {
+    margin: 0 0 0.9rem;
+    color: #236a53;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2,
+  h3,
+  p {
+    margin-top: 0;
+  }
+
+  h1 {
+    margin-bottom: 1rem;
+    font-size: clamp(3.6rem, 12vw, 9rem);
+    line-height: 0.9;
+    letter-spacing: 0;
+  }
+
+  .lead {
+    max-width: 660px;
+    margin-bottom: 2rem;
+    color: #334139;
+    font-size: clamp(1.2rem, 2.2vw, 1.7rem);
+    line-height: 1.35;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  .button {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition:
+      transform 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .button:hover {
+    transform: translateY(-1px);
+  }
+
+  .button--primary {
+    background: #17201b;
+    color: #fffdfa;
+    box-shadow: 0 12px 30px rgba(23, 32, 27, 0.18);
+  }
+
+  .button--secondary {
+    border: 1px solid rgba(23, 32, 27, 0.2);
+    background: rgba(255, 255, 255, 0.52);
+    color: #17201b;
+  }
+
+  .phone {
+    width: min(100%, 390px);
+    margin-inline: auto;
+    border: 10px solid #17201b;
+    border-radius: 36px;
+    background: #fffdfa;
+    box-shadow: 0 28px 80px rgba(23, 32, 27, 0.22);
+    overflow: hidden;
+  }
+
+  .phone__status {
+    display: flex;
+    justify-content: space-between;
+    padding: 1.1rem 1.2rem;
+    color: #64716a;
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .meetup {
+    margin: 0 1rem 1rem;
+    border-radius: 8px;
+    padding: 1.15rem;
+    background: #eaf5ef;
+  }
+
+  .meetup__label {
+    margin-bottom: 0.35rem;
+    color: #236a53;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .meetup h2 {
+    margin-bottom: 0.45rem;
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .meetup p:not(.meetup__label) {
+    color: #4b5d52;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem;
+    margin: 1rem 0;
+  }
+
+  .stat {
+    min-width: 0;
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #fffdfa;
+  }
+
+  .stat strong,
+  .stat span {
+    display: block;
+  }
+
+  .stat strong {
+    font-size: 1.1rem;
+  }
+
+  .stat span {
+    color: #64716a;
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+
+  .runners {
+    display: flex;
+    gap: 0.45rem;
+  }
+
+  .runners span {
+    display: inline-grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 50%;
+    background: #17201b;
+    color: #fffdfa;
+    font-size: 0.8rem;
+    font-weight: 900;
+  }
+
+  .section {
+    padding: clamp(3rem, 6vw, 5.5rem) clamp(1.25rem, 5vw, 4.5rem);
+  }
+
+  .section__header {
+    max-width: 760px;
+    margin-bottom: 2rem;
+  }
+
+  .section h2,
+  .cta h2 {
+    margin-bottom: 0;
+    font-size: clamp(2rem, 5vw, 4.5rem);
+    line-height: 0.98;
+    letter-spacing: 0;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .features article {
+    min-height: 220px;
+    border: 1px solid rgba(23, 32, 27, 0.12);
+    border-radius: 8px;
+    padding: 1.25rem;
+    background: #fffdfa;
+  }
+
+  .icon {
+    display: inline-block;
+    margin-bottom: 1.8rem;
+    color: #236a53;
+    font-size: 0.84rem;
+    font-weight: 900;
+  }
+
+  .features h3 {
+    margin-bottom: 0.7rem;
+    font-size: 1.35rem;
+  }
+
+  .features p {
+    margin-bottom: 0;
+    color: #4b5d52;
+    line-height: 1.55;
+  }
+
+  .cta {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(2.2rem, 5vw, 4.5rem);
+    background: #dcece4;
+  }
+
+  .cta > div {
+    max-width: 760px;
+  }
+
+  @media (max-width: 860px) {
+    .hero {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .phone {
+      max-width: 360px;
+    }
+
+    .features {
+      grid-template-columns: 1fr;
+    }
+
+    .cta {
+      display: block;
+    }
+
+    .cta .button {
+      margin-top: 1.4rem;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .hero {
+      padding-inline: 1.25rem;
+    }
+
+    h1 {
+      font-size: clamp(3.1rem, 18vw, 4.8rem);
+    }
+
+    .actions,
+    .button {
+      width: 100%;
+    }
+
+    .stats {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

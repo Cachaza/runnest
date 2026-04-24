@@ -1,0 +1,17 @@
+{
+  "name": "@apprunners/landing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^6.1.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
