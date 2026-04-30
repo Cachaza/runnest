@@ -1,0 +1,9 @@
+.git
+**/.turbo
+**/.astro
+**/dist
+**/node_modules
+.env
+apps/api/.env
+apps/mobile/.env
+docker-compose.yml
