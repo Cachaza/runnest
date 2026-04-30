@@ -12,21 +12,17 @@ import {
   Chip,
   CollapsibleCard,
   EmptyState,
-  HeroPanel,
   MetaRow,
   ScreenScroll,
   SectionHeader,
-  SegmentedTabs,
 } from '@/components/ui/AppUI';
 import {
   createMeetupCtaLabel,
   descriptionForMode,
   emptyMeetupsCopy,
   labelForCommunityKind,
-  labelForMeetupOrganizer,
   labelForMeetupStyle,
   labelForMode,
-  labelForVisibility,
   lowerLabelForCommunityKind,
   managedMemberRunsBody,
   managedMemberRunsTitle,
@@ -35,7 +31,7 @@ import {
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import { trpc } from '@/lib/trpc';
 
-type TabValue = 'overview' | 'runs' | 'members' | 'manage';
+type TabValue = 'runs' | 'overview' | 'members' | 'chat' | 'manage';
 
 function formatMeetupLabel(startsAt: string | Date) {
   const date = typeof startsAt === 'string' ? new Date(startsAt) : startsAt;
@@ -55,6 +51,23 @@ function formatShortDate(value: string | Date) {
     day: '2-digit',
     month: 'short',
   }).format(date);
+}
+
+function initialsForName(value?: string | null) {
+  const words = (value ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return 'AR';
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
 }
 
 function inviteRoleOptionsForViewer(role?: string | null) {
@@ -99,13 +112,55 @@ function accessClaimStatusLabel(status: 'pending' | 'approved' | 'rejected' | 'c
   }
 }
 
+function HeroStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <View className="flex-1 items-center px-2">
+      <Text className="text-[18px] font-black leading-6 text-hero-text">{value}</Text>
+      <Text className="mt-0.5 text-[11px] font-bold text-hero-text-muted">{label}</Text>
+    </View>
+  );
+}
+
+function CrewTabs({
+  onChange,
+  options,
+  value,
+}: {
+  onChange: (value: TabValue) => void;
+  options: ReadonlyArray<{ value: TabValue; label: string; badge?: number }>;
+  value: TabValue;
+}) {
+  return (
+    <View className="flex-row px-[18px]">
+      {options.map((option) => {
+        const isActive = option.value === value;
+
+        return (
+          <Pressable
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+            className="flex-1 items-center pt-3">
+            <Text
+              numberOfLines={1}
+              className={`text-[12px] font-black ${isActive ? 'text-hero-text' : 'text-hero-text-muted'}`}>
+              {option.label}
+            </Text>
+            <View className={`mt-3 h-[2px] w-full rounded-full ${isActive ? 'bg-hero-accent' : 'bg-transparent'}`} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function CrewDetailScreen() {
   const { colors } = useAppTheme();
   const params = useLocalSearchParams<{ id?: string }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const communityId = rawId ?? null;
   const utils = trpc.useUtils();
-  const [tab, setTab] = useState<TabValue>('overview');
+  const [tab, setTab] = useState<TabValue>('runs');
   const [inviteUsername, setInviteUsername] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'moderator' | 'host' | 'member'>('member');
   const [accessLinkRole, setAccessLinkRole] = useState<'admin' | 'moderator' | 'host' | 'member'>('member');
@@ -375,13 +430,14 @@ export default function CrewDetailScreen() {
 
   const tabOptions = useMemo(() => {
     const base: Array<{ value: TabValue; label: string; badge?: number }> = [
-      { value: 'overview', label: 'Resumen' },
-      { value: 'runs', label: 'Quedadas', badge: upcomingMeetupsCount },
+      { value: 'runs', label: 'Próximas', badge: upcomingMeetupsCount },
+      { value: 'overview', label: 'Info' },
       { value: 'members', label: 'Miembros', badge: isMember ? membersCount : undefined },
+      { value: 'chat', label: 'Chat' },
     ];
 
     if (isStaff) {
-      base.push({ value: 'manage', label: 'Gestión', badge: manageBadge });
+      base.push({ value: 'manage', label: 'Ajustes', badge: manageBadge });
     }
 
     return base;
@@ -529,80 +585,106 @@ export default function CrewDetailScreen() {
   const previewMembers = (communityQuery.data?.members ?? []).slice(0, 5);
 
   return (
-    <ScreenScroll onRefresh={communityId ? onRefresh : undefined} refreshing={refreshing}>
-      <HeroPanel
-        body={community?.description ?? 'Cargando detalle de la comunidad...'}
-        kicker={community ? `${entityLabel} · ${community.city}` : 'Community'}
-        title={community?.name ?? 'Cargando...'}>
-        {community ? (
-          <View className="mt-5 gap-3">
-            <View className="flex-row flex-wrap gap-2">
-              {community.pace ? <Chip tone="cool">{community.pace}</Chip> : null}
-              {community.vibe ? <Chip tone="neutral">{community.vibe}</Chip> : null}
-              <Chip tone="warm">{labelForMode(community.mode)}</Chip>
-              <Chip tone={community.visibility === 'private' ? 'warm' : 'cool'}>
-                {labelForVisibility(community.visibility)}
-              </Chip>
-              {community.viewerMembershipRole ? (
-                <Chip tone="warm">{roleLabel(community.viewerMembershipRole)}</Chip>
-              ) : null}
-            </View>
+    <ScreenScroll
+      contentStyle={{ paddingTop: 0 }}
+      onRefresh={communityId ? onRefresh : undefined}
+      refreshing={refreshing}>
+      <View className="overflow-hidden rounded-b-[26px] bg-hero" style={{ marginHorizontal: -18 }}>
+        <View className="px-[18px] pb-0 pt-4">
+          <View className="flex-row items-center justify-between">
+            <Pressable
+              accessibilityLabel="Volver"
+              hitSlop={10}
+              onPress={() => router.back()}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="h-9 w-9 items-center justify-center rounded-full bg-black/10">
+              <FontAwesome6 name="chevron-left" size={15} color={colors.heroText} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Más opciones"
+              hitSlop={10}
+              onPress={() => (isStaff ? setTab('manage') : undefined)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="h-9 w-9 items-center justify-center rounded-full bg-black/10">
+              <FontAwesome6 name="ellipsis-vertical" size={15} color={colors.heroText} solid />
+            </Pressable>
+          </View>
 
-            <View className="flex-row flex-wrap gap-2.5">
-              {community.viewerCanCreateRuns ? (
-                <Pressable
-                  disabled={isMutatingStaff}
-                  onPress={() => router.push({ pathname: '/modal', params: { communityId } } as any)}
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.8 : isMutatingStaff ? 0.6 : 1,
-                  })}
-                  className="flex-1 items-center rounded-[18px] bg-tint px-4 py-[13px]">
-                  <Text className="text-[14px] font-black text-on-tint">{createMeetupLabel}</Text>
-                </Pressable>
-              ) : null}
-
-              {community.visibility === 'public' && community.viewerMembershipRole !== 'owner' ? (
-                <Pressable
-                  disabled={isMutatingMembership}
-                  onPress={handleMembershipAction}
-                  style={({ pressed }) => ({
-                    backgroundColor: community.viewerMembershipRole
-                      ? 'rgba(255,255,255,0.12)'
-                      : colors.tint,
-                    opacity: pressed ? 0.8 : isMutatingMembership ? 0.6 : 1,
-                  })}
-                  className="flex-1 items-center rounded-[18px] px-4 py-[13px]">
-                  <Text
-                    className={`text-[14px] font-black ${
-                      community.viewerMembershipRole ? 'text-hero-text' : 'text-on-tint'
-                    }`}>
-                    {community.viewerMembershipRole
-                      ? isMutatingMembership
-                        ? 'Saliendo…'
-                        : 'Salir del grupo'
-                      : isMutatingMembership
-                        ? 'Uniéndote…'
-                        : 'Unirme al grupo'}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            {community.visibility === 'private' && !community.viewerMembershipRole ? (
-              <View
-                className="flex-row items-center gap-2 rounded-2xl px-3 py-2.5"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
-                <FontAwesome6 name="lock" size={12} color={colors.heroTextMuted} solid />
-                <Text className="flex-1 text-[13px] font-bold leading-[18px] text-hero-text-muted">
-                  Grupo privado · entra por invitación o código.
+          <View className="items-center pb-4 pt-1">
+            <View className="relative">
+              <View className="h-[82px] w-[82px] items-center justify-center rounded-full border border-hero-accent bg-black/20">
+                <Text className="text-[28px] font-black text-hero-text">
+                  {initialsForName(community?.name)}
                 </Text>
               </View>
+              {community ? (
+                <View className="absolute bottom-1 right-0 h-5 w-5 rounded-full border-2 border-hero bg-success" />
+              ) : null}
+            </View>
+
+            <Text className="mt-4 text-center text-[24px] font-black leading-[28px] text-hero-text">
+              {community?.name ?? 'Cargando...'}
+            </Text>
+            <Text className="mt-1 text-center text-[14px] font-bold text-hero-text-muted">
+              {community?.city ?? 'Community'}
+            </Text>
+
+            {community ? (
+              <>
+                <View className="mt-4 flex-row flex-wrap justify-center gap-2">
+                  {community.pace ? <Chip tone="cool">{community.pace}</Chip> : null}
+                  {community.vibe ? <Chip tone="neutral">{community.vibe}</Chip> : null}
+                </View>
+                <Text className="mt-4 max-w-[280px] text-center text-[15px] font-bold leading-[22px] text-hero-text">
+                  {community.description}
+                </Text>
+
+                <View className="mt-5 w-full rounded-card border border-hero-accent/40 bg-[#2E2219] p-3">
+                  <View className="flex-row items-center">
+                    <HeroStat label="Miembros" value={isMember ? membersCount : '—'} />
+                    <View className="h-9 w-px bg-border/40" />
+                    <HeroStat label="Quedadas" value={upcomingMeetupsCount} />
+                    <View className="h-9 w-px bg-border/40" />
+                    <HeroStat label="Admins" value={Math.max(1, runStaffPreview.length)} />
+                  </View>
+
+                  {community.viewerCanCreateRuns ? (
+                    <Pressable
+                      disabled={isMutatingStaff}
+                      onPress={() => router.push({ pathname: '/modal', params: { communityId } } as any)}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.82 : isMutatingStaff ? 0.6 : 1,
+                      })}
+                      className="mt-3 items-center rounded-[14px] bg-tint py-3.5">
+                      <Text className="text-[14px] font-black text-on-tint">{createMeetupLabel}</Text>
+                    </Pressable>
+                  ) : community.visibility === 'public' && community.viewerMembershipRole !== 'owner' ? (
+                    <Pressable
+                      disabled={isMutatingMembership}
+                      onPress={handleMembershipAction}
+                      style={({ pressed }) => ({
+                        opacity: pressed ? 0.82 : isMutatingMembership ? 0.6 : 1,
+                      })}
+                      className="mt-3 items-center rounded-[14px] bg-tint py-3.5">
+                      <Text className="text-[14px] font-black text-on-tint">
+                        {community.viewerMembershipRole
+                          ? isMutatingMembership
+                            ? 'Saliendo...'
+                            : 'Salir del grupo'
+                          : isMutatingMembership
+                            ? 'Uniéndote...'
+                            : 'Unirme a la crew'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </>
             ) : null}
           </View>
-        ) : null}
-      </HeroPanel>
+        </View>
 
-      {community ? <SegmentedTabs value={tab} onChange={setTab} options={tabOptions} /> : null}
+        {community ? <CrewTabs options={tabOptions} value={tab} onChange={setTab} /> : null}
+      </View>
 
       {tab === 'overview' && community ? (
         <>
@@ -750,6 +832,13 @@ export default function CrewDetailScreen() {
             />
           ))}
         </>
+      ) : null}
+
+      {tab === 'chat' && community ? (
+        <EmptyState
+          title="Chat todavía no disponible."
+          body="Cuando conectemos conversación de grupo, vivirá aquí."
+        />
       ) : null}
 
       {tab === 'members' && community ? (
@@ -1283,11 +1372,6 @@ function MeetupRow({
   onRsvp,
 }: MeetupRowProps) {
   const [showAttendees, setShowAttendees] = useState(false);
-  const organizerName = meetup.createdByUsername ? `@${meetup.createdByUsername}` : meetup.createdByName ?? 'organización';
-  const organizerRole =
-    meetup.createdByPrimaryRole && meetup.createdByPrimaryRole !== 'member'
-      ? roleLabel(meetup.createdByPrimaryRole)
-      : null;
   const canManage = Boolean(meetup.viewerCanManage);
   const canSeeAttendees = canManage || Boolean(meetup.viewerIsMember);
 
@@ -1314,30 +1398,67 @@ function MeetupRow({
     );
   }
 
+  const formattedDate = formatShortDate(meetup.startsAt).split(' ');
+  const attendeePreview = meetup.attendees.slice(0, 4);
+  const extraAttendees = Math.max(0, meetup.attendees.length - attendeePreview.length);
+
   return (
-    <AppCard>
-      <View className="flex-row items-start gap-3">
-        <View className="min-w-[58px] items-center rounded-2xl bg-chip px-2 py-2.5">
-          <Text className="text-[11px] font-black uppercase tracking-[0.4px] text-tint">
-            {formatMeetupLabel(meetup.startsAt)}
-          </Text>
+    <View className="border-b border-border bg-surface px-4 py-4">
+      <Pressable
+        onPress={() => router.push(`/meetup/${meetup.id}` as any)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}
+        className="flex-row items-center gap-3">
+        <View className="w-[50px] items-center rounded-[12px] bg-chip px-2 py-2">
+          <Text className="text-[20px] font-black leading-6 text-text">{formattedDate[0]}</Text>
+          <Text className="text-[10px] font-black uppercase text-muted-text">{formattedDate[1] ?? ''}</Text>
         </View>
         <View className="flex-1 gap-1">
-          <View className="flex-row flex-wrap gap-2">
-            <Chip tone={mode === 'managed' ? 'warm' : 'cool'}>{labelForMeetupStyle(mode)}</Chip>
-          </View>
-          <Text className="text-[17px] font-black leading-[22px] text-text" numberOfLines={2}>
+          <Text className="text-[16px] font-black leading-[20px] text-text" numberOfLines={1}>
             {meetup.title}
           </Text>
-          <Text className="text-[13px] leading-[19px] text-muted-text" numberOfLines={1}>
+          <Text className="text-[12px] font-bold leading-[17px] text-muted-text" numberOfLines={1}>
             {meetup.distanceKm} km · {meetup.location}
           </Text>
           <Text className="text-[12px] font-bold leading-[18px] text-muted-text" numberOfLines={1}>
-            {labelForMeetupOrganizer(mode)} {organizerName}
-            {organizerRole ? ` · ${organizerRole}` : ''}
+            {formatMeetupLabel(meetup.startsAt)}
           </Text>
+        </View>
+      </Pressable>
+
+      <View className="mt-3 flex-row items-center justify-between gap-3 pl-[62px]">
+        <View className="flex-row items-center">
+          {attendeePreview.map((attendee, index) => (
+            <View
+              key={attendee.userId}
+              className="h-6 w-6 items-center justify-center rounded-full border border-surface bg-chip"
+              style={{ marginLeft: index === 0 ? 0 : -7 }}>
+              <Text className="text-[8px] font-black text-text">
+                {initialsForName(attendee.username ?? attendee.name)}
+              </Text>
+            </View>
+          ))}
+          {extraAttendees > 0 ? (
+            <View className="ml-1 h-6 min-w-6 items-center justify-center rounded-full bg-chip px-1.5">
+              <Text className="text-[9px] font-black text-text">+{extraAttendees}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Pressable
+          disabled={disabled}
+          onPress={() => onRsvp(meetup.id, meetup.viewerIsGoing)}
+          style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
+          className={`rounded-full px-4 py-2.5 ${meetup.viewerIsGoing ? 'bg-chip' : 'bg-tint'}`}>
+          <Text className={`text-[12px] font-black ${meetup.viewerIsGoing ? 'text-text' : 'text-on-tint'}`}>
+            {meetup.viewerIsGoing ? 'Apuntado' : 'Me apunto'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {canSeeAttendees || canManage ? (
+        <View className="mt-2 pl-[62px]">
           {canSeeAttendees ? (
-            <View className="mt-1 flex-row flex-wrap gap-2">
+            <View className="flex-row flex-wrap gap-2">
               {canManage ? (
                 <Pressable
                   disabled={manageDisabled}
@@ -1390,33 +1511,9 @@ function MeetupRow({
               )}
             </View>
           ) : null}
-          <View className="mt-0.5 flex-row items-center justify-between gap-3">
-            <Text className="text-[12px] font-bold text-muted-text">
-              {meetup.rsvpCount} apuntados · {meetup.messageCount ?? 0} comentarios
-            </Text>
-            <View className="flex-row gap-2">
-              <Pressable
-                disabled={disabled}
-                onPress={() => router.push(`/meetup/${meetup.id}` as any)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
-                className="rounded-full bg-chip px-3 py-1.5">
-                <Text className="text-[12px] font-black text-text">Ver</Text>
-              </Pressable>
-              <Pressable
-                disabled={disabled}
-                onPress={() => onRsvp(meetup.id, meetup.viewerIsGoing)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : disabled ? 0.7 : 1 })}
-                className={`rounded-full px-3 py-1.5 ${meetup.viewerIsGoing ? 'bg-chip' : 'bg-tint'}`}>
-                <Text
-                  className={`text-[12px] font-black ${meetup.viewerIsGoing ? 'text-text' : 'text-on-tint'}`}>
-                  {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
         </View>
-      </View>
-    </AppCard>
+      ) : null}
+    </View>
   );
 }
 

@@ -5,8 +5,8 @@ module.exports = {
   theme: {
     extend: {
       borderRadius: {
-        card: 24,
-        hero: 28,
+        card: 16,
+        hero: 18,
       },
       colors: {
         background: 'rgb(var(--color-background) / <alpha-value>)',

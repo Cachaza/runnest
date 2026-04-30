@@ -27,6 +27,7 @@ export default defineConfig({
     'meetup_rsvps',
     'user_push_devices',
     'notification_deliveries',
+    'waitlist_signups',
   ],
   dbCredentials: {
     url: process.env.DATABASE_URL ?? 'postgres://apprunners:apprunners@localhost:5433/apprunners',

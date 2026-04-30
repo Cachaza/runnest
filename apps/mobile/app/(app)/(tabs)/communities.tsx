@@ -9,10 +9,7 @@ import {
   AppCard,
   Chip,
   EmptyState,
-  HeroPanel,
   HorizontalScroller,
-  QuickAction,
-  QuickActionRow,
   ScreenScroll,
   SectionHeader,
   SegmentedTabs,
@@ -22,13 +19,11 @@ import {
   CommunityKind,
   CommunityMode,
   CommunityVisibility,
-  descriptionForMode,
   labelForCommunityKind,
   labelForMeetupOrganizer,
   labelForMeetupStyle,
   labelForMode,
   labelForVisibility,
-  modeCommunityCardCopy,
 } from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
 import { trpc } from '@/lib/trpc';
@@ -91,18 +86,21 @@ function joinRequestStatusLabel(status: 'pending' | 'approved' | 'rejected' | 'c
   }
 }
 
-function iconForCommunityKind(kind: CommunityKind): React.ComponentProps<typeof FontAwesome6>['name'] {
-  switch (kind) {
-    case 'creator_community':
-      return 'star';
-    case 'club':
-      return 'shield-halved';
-    case 'training_group':
-      return 'dumbbell';
-    case 'crew_local':
-    default:
-      return 'users';
+function initialsForCommunity(name: string) {
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return 'AR';
   }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
 }
 
 export default function CommunitiesScreen() {
@@ -312,37 +310,118 @@ export default function CommunitiesScreen() {
 
   return (
     <ScreenScroll onRefresh={onRefresh} refreshing={refreshing}>
-      <HeroPanel
-        body="Aquí están tus grupos, las salidas que vienen y las invitaciones que recibes."
-        kicker="Grupos"
-        title="Todos tus grupos en un sitio"
-      />
-
-      {session ? (
-        <QuickActionRow>
-          <QuickAction
-            icon="plus"
-            label="Grupo"
-            tone="primary"
-            onPress={() => router.push('/community-new')}
-          />
-          <QuickAction
-            icon="key"
-            label="Código"
-            onPress={() => router.push('/community-access')}
-          />
-          <QuickAction
-            icon="magnifying-glass"
-            label="Buscar"
-            onPress={() => setTab('discover')}
-          />
-        </QuickActionRow>
-      ) : null}
+      {/* Hero */}
+      <View className="gap-5 rounded-hero bg-hero p-5">
+        <View>
+          <Text className="text-[11px] font-black uppercase tracking-[0.9px] text-hero-accent">Grupos</Text>
+          <Text className="mt-2 text-[28px] font-black leading-[31px] text-hero-text">
+            Todos tus grupos en un sitio.
+          </Text>
+          <Text className="mt-1 text-[15px] leading-[21px] text-hero-text-muted">
+            Aquí están tus grupos, las salidas que vienen y las invitaciones que recibes.
+          </Text>
+        </View>
+        {session ? (
+          <View className="flex-row gap-2.5">
+            <Pressable
+              onPress={() => router.push('/community-new')}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border border-tint/30 bg-tint px-3 py-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
+                <FontAwesome6 name="plus" size={15} color={colors.onTint} solid />
+              </View>
+              <Text className="text-[11px] font-black text-on-tint">Grupo</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/community-access')}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <FontAwesome6 name="key" size={15} color={colors.heroText} solid />
+              </View>
+              <Text className="text-[11px] font-black text-hero-text">Código</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setTab('discover')}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              <View
+                className="h-9 w-9 items-center justify-center rounded-full"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <FontAwesome6 name="magnifying-glass" size={15} color={colors.heroText} solid />
+              </View>
+              <Text className="text-[11px] font-black text-hero-text">Buscar</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
 
       <SegmentedTabs value={tab} onChange={setTab} options={tabOptions} />
 
       {tab === 'discover' ? (
         <>
+          <View className="flex-row gap-2">
+            <View className="min-h-[44px] flex-1 flex-row items-center gap-2 rounded-full border border-border bg-chip px-4">
+              <FontAwesome6 name="magnifying-glass" size={14} color={colors.mutedText} />
+              <TextInput
+                autoCapitalize="none"
+                onChangeText={(value) => setCommunitySearch(value)}
+                placeholder="Buscar comunidades..."
+                placeholderTextColor={colors.mutedText}
+                style={{ color: colors.text, flex: 1, fontSize: 14, fontWeight: '700', paddingVertical: 0 }}
+                value={communitySearch}
+              />
+            </View>
+          </View>
+
+          {trimmedCommunitySearch.length >= 2 ? (
+            <>
+              <SectionHeader loading={communitySearchQuery.isPending} title="Resultados" />
+
+              {!communitySearchQuery.isPending && (communitySearchQuery.data?.length ?? 0) === 0 ? (
+                <EmptyState title="Sin coincidencias." body="Prueba con el nombre exacto del grupo o una pista de ciudad." />
+              ) : null}
+
+              {communitySearchQuery.data?.map((result) => {
+                const primaryActionLabel =
+                  result.visibility === 'public'
+                    ? 'Unirme'
+                    : result.joinRequestStatus === 'pending'
+                      ? 'Cancelar solicitud'
+                      : result.joinRequestStatus === 'rejected'
+                        ? 'Volver a solicitar'
+                        : 'Solicitar entrada';
+
+                return (
+                  <CommunityListItem
+                    key={result.id}
+                    id={result.id}
+                    name={result.name}
+                    kind={result.kind}
+                    city={result.city}
+                    description={result.description}
+                    mode={result.mode}
+                    visibility={result.visibility}
+                    pace={result.pace}
+                    vibe={result.joinRequestStatus ? joinRequestStatusLabel(result.joinRequestStatus) : null}
+                    actionLabel={result.canOpen ? undefined : primaryActionLabel}
+                    onActionPress={
+                      result.canOpen
+                        ? undefined
+                        : () => {
+                            void handleCommunitySearchAction(result);
+                          }
+                    }
+                  />
+                );
+              })}
+            </>
+          ) : null}
+
           <SectionHeader loading={meetupsQuery.isPending} title="Próximas quedadas" />
 
           {meetupsQuery.error ? (
@@ -827,6 +906,8 @@ type CommunityListItemProps = {
   name: string;
   pace?: string | null;
   primaryRole?: string | null;
+  actionLabel?: string;
+  onActionPress?: () => void;
   visibility: CommunityVisibility;
   vibe?: string | null;
 };
@@ -841,58 +922,69 @@ function CommunityListItem(props: CommunityListItemProps) {
     kind,
     mode,
     name,
+    actionLabel,
+    onActionPress,
     pace,
     primaryRole,
     visibility,
     vibe,
   } = props;
   const { colors } = useAppTheme();
+  const cardContent = (
+    <View className="flex-row items-center gap-3 rounded-card border border-border bg-surface p-4">
+      <View
+        className="h-12 w-12 items-center justify-center rounded-full"
+        style={{ backgroundColor: colors.hero }}>
+        <Text className="text-[17px] font-black text-hero-text">{initialsForCommunity(name)}</Text>
+      </View>
+      <View className="flex-1">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-1">
+            <Text className="text-[18px] font-black leading-[22px] text-text" numberOfLines={1}>
+              {name}
+            </Text>
+            <Text className="mt-[1px] text-[12px] font-bold text-muted-text" numberOfLines={1}>
+              {city}
+            </Text>
+          </View>
+          {actionLabel ? (
+            <Pressable
+              disabled={!onActionPress}
+              onPress={onActionPress}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+              className="rounded-full bg-chip px-3 py-2">
+              <Text className="text-[11px] font-black text-text">{actionLabel}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <Text className="mt-2 text-[13px] leading-[18px] text-muted-text" numberOfLines={2}>
+          {description}
+        </Text>
+        <View className="mt-3 flex-row flex-wrap items-center gap-1.5">
+          {highlight ? <Chip tone="warm">{highlight}</Chip> : null}
+          {pace ? <Chip tone="cool">{pace}</Chip> : null}
+          {vibe ? <Chip tone="neutral">{vibe}</Chip> : null}
+          <Chip tone={mode === 'managed' ? 'warm' : 'neutral'}>{labelForMode(mode)}</Chip>
+          <Chip tone={visibility === 'private' ? 'warm' : 'cool'}>{labelForVisibility(visibility)}</Chip>
+          {primaryRole ? <Chip tone="warm">{primaryRole}</Chip> : null}
+          {canCreateRuns ? <Chip tone="cool">Organizas</Chip> : null}
+        </View>
+        <Text className="mt-3 text-[12px] font-bold text-muted-text" numberOfLines={1}>
+          {labelForCommunityKind(kind)}
+        </Text>
+      </View>
+      {!actionLabel ? <FontAwesome6 name="chevron-right" size={13} color={colors.mutedText} /> : null}
+    </View>
+  );
+
+  if (actionLabel && onActionPress) {
+    return cardContent;
+  }
 
   return (
     <Link href={`/crew/${id}` as any} asChild>
       <Pressable style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
-        <View className="flex-row items-center gap-3 rounded-card border border-border bg-surface p-4">
-          <View
-            className="h-12 w-12 items-center justify-center rounded-2xl bg-chip"
-            style={{ backgroundColor: colors.chip }}>
-            <FontAwesome6
-              name={iconForCommunityKind(kind)}
-              size={18}
-              color={colors.tint}
-              solid
-            />
-          </View>
-          <View className="flex-1">
-            <View className="flex-row items-center gap-2">
-              <Text className="flex-1 text-[17px] font-black text-text" numberOfLines={1}>
-                {name}
-              </Text>
-              {primaryRole ? <Chip tone="warm">{primaryRole}</Chip> : null}
-            </View>
-            <Text className="mt-[1px] text-[12px] font-bold text-muted-text" numberOfLines={1}>
-              {labelForCommunityKind(kind)} · {city}
-            </Text>
-            <Text className="mt-1 text-[13px] leading-[18px] text-muted-text" numberOfLines={2}>
-              {description}
-            </Text>
-            <Text className="mt-1 text-[12px] font-bold leading-[17px] text-muted-text" numberOfLines={2}>
-              {descriptionForMode(mode)}
-            </Text>
-            <View className="mt-2 flex-row flex-wrap gap-1.5">
-              {highlight ? <Chip tone="warm">{highlight}</Chip> : null}
-              {pace ? <Chip tone="cool">{pace}</Chip> : null}
-              {vibe ? <Chip tone="neutral">{vibe}</Chip> : null}
-              <Chip tone="neutral">{labelForMode(mode)}</Chip>
-              <Chip tone={mode === 'managed' ? 'warm' : 'cool'}>{labelForMeetupStyle(mode)}</Chip>
-              <Chip tone={visibility === 'private' ? 'warm' : 'cool'}>{labelForVisibility(visibility)}</Chip>
-              {canCreateRuns ? <Chip tone="warm">Organiza</Chip> : null}
-            </View>
-            <Text className="mt-2 text-[12px] font-bold leading-[17px] text-muted-text" numberOfLines={2}>
-              {modeCommunityCardCopy(mode)}
-            </Text>
-          </View>
-          <FontAwesome6 name="chevron-right" size={14} color={colors.mutedText} />
-        </View>
+        {cardContent}
       </Pressable>
     </Link>
   );
@@ -941,7 +1033,7 @@ const styles = StyleSheet.create({
   meetupTitle: {
     fontSize: 18,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: 0,
     lineHeight: 22,
   },
   runnerCard: {

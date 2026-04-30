@@ -129,7 +129,7 @@ export function ScreenScroll({
         <ScrollView
           alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControlEl)}
           className="flex-1"
-          contentContainerClassName="gap-4 px-[18px] pb-[140px]"
+          contentContainerClassName="gap-4 px-[18px] pb-[120px]"
           contentContainerStyle={[{ paddingTop: 8 }, contentStyle]}
           refreshControl={refreshControlEl}
           showsVerticalScrollIndicator={false}
@@ -145,7 +145,7 @@ export function ScreenScroll({
       alwaysBounceVertical={props.alwaysBounceVertical ?? Boolean(onRefresh ?? refreshControlEl)}
       className="flex-1 bg-background"
       style={style}
-      contentContainerClassName="gap-4 px-[18px] pb-[140px]"
+      contentContainerClassName="gap-4 px-[18px] pb-[120px]"
       contentContainerStyle={[{ paddingTop: Math.max(insets.top + 8, 18) }, contentStyle]}
       refreshControl={refreshControlEl}
       showsVerticalScrollIndicator={false}
@@ -157,10 +157,10 @@ export function ScreenScroll({
 
 export function HeroPanel({ body, children, kicker, title }: HeroPanelProps) {
   return (
-    <View className="min-h-56 rounded-hero bg-hero p-6">
-      <Text className="text-xs font-black uppercase tracking-[1.1px] text-hero-accent">{kicker}</Text>
-      <Text className="mt-[18px] text-[40px] font-black leading-[44px] text-hero-text">{title}</Text>
-      {body ? <Text className="mt-3.5 text-[17px] leading-[25px] text-hero-text-muted">{body}</Text> : null}
+    <View className="rounded-hero bg-hero p-5">
+      <Text className="text-[11px] font-black uppercase tracking-[0.9px] text-hero-accent">{kicker}</Text>
+      <Text className="mt-3 text-[30px] font-black leading-[33px] text-hero-text">{title}</Text>
+      {body ? <Text className="mt-2 text-[15px] leading-[21px] text-hero-text-muted">{body}</Text> : null}
       {children}
     </View>
   );
@@ -168,7 +168,7 @@ export function HeroPanel({ body, children, kicker, title }: HeroPanelProps) {
 
 export function AppCard({ children, style }: StyledChildrenProps) {
   return (
-    <View className="gap-2.5 rounded-card border border-border bg-surface p-5" style={style}>
+    <View className="gap-2.5 rounded-card border border-border bg-surface p-4" style={style}>
       {children}
     </View>
   );
@@ -179,7 +179,7 @@ export function SectionHeader({ loading, right, title }: SectionHeaderProps) {
 
   return (
     <View className="mt-3 flex-row items-center justify-between">
-      <Text className="text-[22px] font-black leading-7 text-text">{title}</Text>
+      <Text className="text-[17px] font-black leading-6 text-text">{title}</Text>
       {loading ? <ActivityIndicator color={colors.tint} /> : right}
     </View>
   );
@@ -201,8 +201,8 @@ export function Chip({ children, onPress, selected = false, tone = 'default' }: 
     neutral: 'bg-badge-neutral',
     warm: 'bg-badge-warm',
   }[tone];
-  const chipClassName = `rounded-full px-3.5 py-[9px] ${selected ? 'bg-tint' : toneClassName}`;
-  const textClassName = `text-xs font-black uppercase ${selected ? 'text-on-tint' : 'text-text'}`;
+  const chipClassName = `rounded-full px-3 py-[7px] ${selected ? 'bg-tint' : toneClassName}`;
+  const textClassName = `text-[10px] font-black uppercase ${selected ? 'text-on-tint' : 'text-text'}`;
 
   if (onPress) {
     return (
@@ -271,7 +271,7 @@ export function SegmentedTabs<T extends string>({
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
-            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full px-2 py-2.5 ${
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-full px-2 py-2 ${
               isActive ? 'bg-surface' : ''
             }`}
             style={({ pressed }) => ({
@@ -284,7 +284,7 @@ export function SegmentedTabs<T extends string>({
             })}>
             <Text
               numberOfLines={1}
-              className={`text-[13px] font-black ${isActive ? 'text-text' : 'text-muted-text'}`}>
+              className={`text-[12px] font-black ${isActive ? 'text-text' : 'text-muted-text'}`}>
               {option.label}
             </Text>
             {showBadge ? (
@@ -339,17 +339,17 @@ export function QuickAction({ icon, label, onPress, tone = 'neutral' }: QuickAct
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-      className={`flex-1 items-center gap-2 rounded-card border border-border px-3 py-4 ${
+      className={`flex-1 items-center gap-2 rounded-card border border-border px-3 py-3 ${
         isPrimary ? 'bg-tint' : 'bg-surface'
       }`}>
       <View
-        className={`h-10 w-10 items-center justify-center rounded-full ${isPrimary ? '' : 'bg-chip'}`}
+        className={`h-9 w-9 items-center justify-center rounded-full ${isPrimary ? '' : 'bg-chip'}`}
         style={isPrimary ? { backgroundColor: 'rgba(255,255,255,0.18)' } : undefined}>
-        <FontAwesome6 name={icon} size={16} color={iconColor} solid />
+        <FontAwesome6 name={icon} size={15} color={iconColor} solid />
       </View>
       <Text
         numberOfLines={1}
-        className={`text-[12px] font-black uppercase tracking-[0.5px] ${
+        className={`text-[11px] font-black ${
           isPrimary ? 'text-on-tint' : 'text-text'
         }`}>
         {label}

@@ -21,6 +21,7 @@ export const env = {
   betterAuthSecret: parsedEnv.BETTER_AUTH_SECRET,
   betterAuthUrl: parsedEnv.BETTER_AUTH_URL,
   corsOrigin: parsedEnv.CORS_ORIGIN,
+  corsOrigins: parsedEnv.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean),
   mobileScheme: parsedEnv.MOBILE_SCHEME,
   emailFrom: parsedEnv.EMAIL_FROM,
   resendApiKey: parsedEnv.RESEND_API_KEY,

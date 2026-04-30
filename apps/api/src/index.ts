@@ -2,8 +2,9 @@ import { serve } from '@hono/node-server'
 import { trpcServer } from '@hono/trpc-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { z } from 'zod'
 
-import { pool } from '@apprunners/db'
+import { db, pool, waitlistSignups } from '@apprunners/db'
 
 import { auth } from './lib/auth.js'
 import { env } from './lib/env.js'
@@ -16,9 +17,13 @@ type AppVariables = {
 }
 
 const app = new Hono<{ Variables: AppVariables }>()
+const waitlistSignupSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  source: z.string().trim().min(1).max(80).default('landing'),
+})
 
 app.use('*', cors({
-  origin: env.corsOrigin,
+  origin: env.corsOrigins,
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'OPTIONS'],
   exposeHeaders: ['Content-Length'],
@@ -51,6 +56,48 @@ app.get('/health', async (c) => {
   return c.json({
     status: 'ok',
     database: 'reachable',
+  })
+})
+
+app.post('/api/waitlist', async (c) => {
+  const body = await c.req.parseBody()
+  const parsed = waitlistSignupSchema.safeParse({
+    email: body.email,
+    source: body.source ?? 'landing',
+  })
+
+  if (!parsed.success) {
+    return c.json({
+      ok: false,
+      message: 'Introduce un correo válido.',
+    }, 400)
+  }
+
+  const forwardedFor = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+  const userAgent = c.req.header('user-agent') ?? null
+  const now = new Date()
+
+  await db
+    .insert(waitlistSignups)
+    .values({
+      email: parsed.data.email,
+      ipAddress: forwardedFor || null,
+      source: parsed.data.source,
+      updatedAt: now,
+      userAgent,
+    })
+    .onConflictDoUpdate({
+      target: waitlistSignups.email,
+      set: {
+        source: parsed.data.source,
+        updatedAt: now,
+        userAgent,
+      },
+    })
+
+  return c.json({
+    ok: true,
+    message: 'Te avisaremos cuando abramos el acceso.',
   })
 })
 

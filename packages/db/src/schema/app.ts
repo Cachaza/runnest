@@ -36,6 +36,23 @@ export type CommunityAccessLinkClaimStatus = 'pending' | 'approved' | 'rejected'
 export type PushDevicePlatform = 'ios' | 'android' | 'web' | 'unknown'
 export type NotificationDeliveryStatus = 'pending' | 'sent' | 'failed'
 
+export const waitlistSignups = pgTable(
+  'waitlist_signups',
+  {
+    id: integer().generatedAlwaysAsIdentity().primaryKey(),
+    email: text('email').notNull(),
+    source: text('source').default('landing').notNull(),
+    userAgent: text('user_agent'),
+    ipAddress: text('ip_address'),
+    marketingConsent: boolean('marketing_consent').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    emailIndex: uniqueIndex('waitlist_signups_email_idx').on(table.email),
+  }),
+)
+
 export const profiles = pgTable(
   'profiles',
   {

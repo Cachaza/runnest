@@ -8,16 +8,11 @@ import {
   AppCard,
   Chip,
   EmptyState,
-  HeroPanel,
-  MetaRow,
-  QuickAction,
-  QuickActionRow,
   ScreenScroll,
   SectionHeader,
 } from '@/components/ui/AppUI';
 import { useAppTheme } from '@/components/ThemeContext';
 import {
-  labelForCommunityKind,
   labelForMeetupOrganizer,
   labelForMeetupStyle,
 } from '@/lib/community-labels';
@@ -25,22 +20,35 @@ import { trpc } from '@/lib/trpc';
 
 function formatMeetupDate(value: string | Date) {
   const date = typeof value === 'string' ? new Date(value) : value;
-
-  return new Intl.DateTimeFormat('es-ES', {
-    dateStyle: 'full',
-    timeStyle: 'short',
+  const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(date);
+  const day = new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   }).format(date);
+  const time = new Intl.DateTimeFormat('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+
+  return `${capitalizedWeekday}, ${day} · ${time}`;
 }
 
 function formatMessageTime(value: string | Date) {
   const date = typeof value === 'string' ? new Date(value) : value;
-
-  return new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  const dayMonth = new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
     month: 'short',
+  })
+    .format(date)
+    .replace('.', '');
+  const time = new Intl.DateTimeFormat('es-ES', {
+    hour: 'numeric',
+    minute: '2-digit',
   }).format(date);
+
+  return `${dayMonth}, ${time}`;
 }
 
 function roleLabel(role?: string | null) {
@@ -93,7 +101,7 @@ export default function MeetupDetailScreen() {
   const meetupId = rawId ? Number(rawId) : NaN;
   const hasValidMeetupId = Number.isInteger(meetupId) && meetupId > 0;
   const utils = trpc.useUtils();
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
   const [commentBody, setCommentBody] = useState('');
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const meetupQuery = trpc.meetups.byId.useQuery(
@@ -170,21 +178,21 @@ export default function MeetupDetailScreen() {
   const trimmedCommentBody = commentBody.trim();
   const isMutatingRsvp = rsvpMutation.isPending || unrsvpMutation.isPending;
   const canUseComments = Boolean(meetup?.viewerIsMember || meetup?.viewerIsGoing);
-  const locationLine = useMemo(() => {
-    if (!meetup) {
+  const coordinatesLine = useMemo(() => {
+    if (
+      !meetup ||
+      meetup.locationLat === null ||
+      meetup.locationLat === undefined ||
+      meetup.locationLng === null ||
+      meetup.locationLng === undefined
+    ) {
       return null;
     }
 
-    const coordinates =
-      meetup.locationLat !== null &&
-      meetup.locationLat !== undefined &&
-      meetup.locationLng !== null &&
-      meetup.locationLng !== undefined
-        ? `${meetup.locationLat.toFixed(5)}, ${meetup.locationLng.toFixed(5)}`
-        : null;
-
-    return coordinates ? `${meetup.location} · ${coordinates}` : meetup.location;
+    return `${meetup.locationLat.toFixed(5)}, ${meetup.locationLng.toFixed(5)}`;
   }, [meetup]);
+  const attendeeAvatars = meetup?.attendees.slice(0, 3) ?? [];
+  const extraAttendees = Math.max(0, (meetup?.rsvpCount ?? 0) - attendeeAvatars.length);
 
   async function invalidateMeetupState() {
     await utils.meetups.byId.invalidate({ meetupId });
@@ -283,6 +291,7 @@ export default function MeetupDetailScreen() {
   return (
     <ScreenScroll
       title="Quedada"
+      contentStyle={{ paddingBottom: 44 }}
       onRefresh={() => {
         void invalidateMeetupState();
         void utils.meetups.messages.invalidate({ meetupId });
@@ -290,62 +299,123 @@ export default function MeetupDetailScreen() {
       refreshing={meetupQuery.isFetching || messagesQuery.isFetching}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled">
-      <HeroPanel
-        kicker={`${labelForCommunityKind(meetup.communityKind)} · ${meetup.communityName}`}
-        title={meetup.title}
-        body={formatMeetupDate(meetup.startsAt)}>
-        <View className="mt-5 flex-row flex-wrap gap-2">
+      <View className="gap-3">
+        <View className="self-start">
           <Chip tone={meetup.communityMode === 'managed' ? 'warm' : 'cool'}>
             {labelForMeetupStyle(meetup.communityMode)}
           </Chip>
-          <Chip tone="neutral">{meetup.distanceKm} km</Chip>
         </View>
-      </HeroPanel>
+        <Text className="text-[28px] font-black leading-[32px] text-text">{meetup.title}</Text>
+        <Text className="text-[14px] leading-[20px] text-muted-text">
+          {formatMeetupDate(meetup.startsAt)}
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          <Chip tone="neutral">{meetup.distanceKm} km</Chip>
+          <Chip tone={meetup.communityMode === 'managed' ? 'warm' : 'cool'}>
+            {labelForMeetupStyle(meetup.communityMode)}
+          </Chip>
+        </View>
+      </View>
 
       <AppCard>
-        <MetaRow
-          items={[
-            { label: 'Apuntados', value: meetup.rsvpCount },
-            { label: 'Comentarios', value: meetup.messageCount },
-          ]}
-        />
-        <View className="mt-1 flex-row items-center gap-2">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-1 flex-row items-start gap-2">
+            <FontAwesome6 name="location-dot" size={14} color={colors.tint} />
+            <View className="flex-1">
+              <Text className="text-[15px] font-black leading-5 text-text" numberOfLines={1}>
+                {meetup.location}
+              </Text>
+              {coordinatesLine ? (
+                <Text className="text-[12px] leading-[18px] text-muted-text" numberOfLines={1}>
+                  {coordinatesLine}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          <FontAwesome6 name="up-right-from-square" size={13} color={colors.mutedText} />
+        </View>
+        <View
+          className="mt-1 h-36 items-center justify-center overflow-hidden rounded-card bg-chip"
+          style={{ borderColor: colors.border, borderWidth: 1 }}>
+          <FontAwesome6 name="map-location-dot" size={28} color={colors.mutedText} />
+          <Text className="mt-2 text-[11px] font-black uppercase tracking-[0.8px] text-muted-text">
+            Mapa próximamente
+          </Text>
+        </View>
+      </AppCard>
+
+      <AppCard>
+        <View className="flex-row items-center justify-between gap-3">
+          <View className="flex-row gap-6">
+            <View>
+              <Text className="text-[11px] font-black uppercase tracking-[0.6px] text-muted-text">
+                Apuntados
+              </Text>
+              <Text className="text-[17px] font-black text-text">{meetup.rsvpCount}</Text>
+            </View>
+            <View>
+              <Text className="text-[11px] font-black uppercase tracking-[0.6px] text-muted-text">
+                Comentarios
+              </Text>
+              <Text className="text-[17px] font-black text-text">{meetup.messageCount}</Text>
+            </View>
+          </View>
+          {attendeeAvatars.length > 0 ? (
+            <View className="flex-row items-center">
+              {attendeeAvatars.map((attendee, index) => (
+                <View
+                  key={attendee.userId}
+                  className="h-8 w-8 items-center justify-center rounded-full bg-chip"
+                  style={{
+                    borderColor: colors.surface,
+                    borderWidth: 2,
+                    marginLeft: index === 0 ? 0 : -10,
+                  }}>
+                  <Text className="text-[11px] font-black text-text">
+                    {initialsOf(attendee.name ?? attendee.username ?? 'R')}
+                  </Text>
+                </View>
+              ))}
+              {extraAttendees > 0 ? (
+                <View
+                  className="h-8 items-center justify-center rounded-full bg-tint px-2"
+                  style={{
+                    borderColor: colors.surface,
+                    borderWidth: 2,
+                    marginLeft: -10,
+                  }}>
+                  <Text className="text-[11px] font-black text-on-tint">+{extraAttendees}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+        <View className="flex-row items-center gap-2">
           <FontAwesome6 name="user" size={11} color={colors.mutedText} />
-          <Text className="flex-1 text-[14px] leading-[21px] text-muted-text" numberOfLines={1}>
+          <Text className="flex-1 text-[13px] leading-[19px] text-muted-text" numberOfLines={1}>
             {labelForMeetupOrganizer(meetup.communityMode)} {organizerName}
             {organizerRole ? ` · ${organizerRole}` : ''}
           </Text>
         </View>
       </AppCard>
 
-      <AppCard>
-        <View className="flex-row items-center gap-2">
-          <FontAwesome6 name="location-dot" size={13} color={colors.mutedText} />
-          <Text className="text-[13px] font-black uppercase tracking-[0.6px] text-muted-text">
-            Ubicación
-          </Text>
-        </View>
-        <Text className="mt-1 text-[20px] font-black leading-6 text-text">{meetup.location}</Text>
-        {locationLine && locationLine !== meetup.location ? (
-          <Text className="text-[13px] leading-[19px] text-muted-text">{locationLine}</Text>
-        ) : null}
-      </AppCard>
-
       <View className="gap-2">
-        <View style={{ opacity: isMutatingRsvp ? 0.6 : 1 }}>
-          <QuickActionRow>
-            <QuickAction
-              icon={meetup.viewerIsGoing ? 'circle-check' : 'person-running'}
-              label={meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
-              onPress={handleRsvp}
-              tone={meetup.viewerIsGoing ? 'neutral' : 'primary'}
-            />
-            <QuickAction
-              icon="users"
-              label="Ver grupo"
-              onPress={() => router.push(`/crew/${meetup.communityId}` as any)}
-            />
-          </QuickActionRow>
+        <View className="flex-row gap-2.5" style={{ opacity: isMutatingRsvp ? 0.6 : 1 }}>
+          <View className="flex-1">
+            <AppButton
+              tone={meetup.viewerIsGoing ? 'secondary' : 'primary'}
+              disabled={isMutatingRsvp}
+              onPress={handleRsvp}>
+              {meetup.viewerIsGoing ? 'Salir' : 'Me apunto'}
+            </AppButton>
+          </View>
+          <View className="flex-1">
+            <AppButton
+              tone="secondary"
+              onPress={() => router.push(`/crew/${meetup.communityId}` as any)}>
+              Ver grupo
+            </AppButton>
+          </View>
         </View>
         {meetup.viewerCanManage ? (
           <View className="flex-row gap-2">
@@ -403,82 +473,65 @@ export default function MeetupDetailScreen() {
 
       <SectionHeader title="Comentarios" loading={messagesQuery.isFetching} />
       {canUseComments ? (
-        <View className="gap-3">
+        <View className="gap-5">
           {messagesQuery.data && messagesQuery.data.length > 0 ? (
-            <View className="gap-3">
+            <View className="gap-5">
               {messagesQuery.data.map((message) => {
-                const authorLabel = message.viewerIsAuthor ? 'Tú' : messageAuthorLabel(message);
-
-                if (message.viewerIsAuthor) {
-                  return (
-                    <View key={message.id} className="w-full items-end">
-                      <View className="max-w-[82%]">
-                        <View className="gap-1 rounded-[18px] bg-tint px-3.5 py-3">
-                          {message.replyTo ? (
-                            <View className="mb-1 rounded-[12px] bg-on-tint/15 px-2.5 py-2">
-                              <Text className="text-[11px] font-black text-on-tint" numberOfLines={1}>
-                                {messageAuthorLabel(message.replyTo)}
-                              </Text>
-                              <Text className="text-[12px] leading-[17px] text-on-tint" numberOfLines={2}>
-                                {message.replyTo.body}
-                              </Text>
-                            </View>
-                          ) : null}
-                          <Text className="text-[15px] leading-[22px] text-on-tint">{message.body}</Text>
-                          <Pressable
-                            onPress={() =>
-                              setReplyTarget({ authorLabel, body: message.body, id: message.id })
-                            }
-                            className="self-start pt-0.5"
-                            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-                            <Text className="text-[12px] font-black text-on-tint">Responder</Text>
-                          </Pressable>
-                        </View>
-                        <Text className="mt-1 px-1 text-right text-[10px] font-bold text-muted-text">
-                          {formatMessageTime(message.createdAt)}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                }
+                const authorLabel = messageAuthorLabel(message);
+                const isHost = message.authorUserId === meetup.createdByUserId;
 
                 return (
-                  <View key={message.id} className="w-full items-start">
-                    <View className="max-w-[86%] flex-row items-end gap-2">
-                      <View className="mb-[18px] h-7 w-7 shrink-0 items-center justify-center rounded-full bg-chip">
-                        <Text className="text-[10px] font-black text-text">
-                          {initialsForAuthor(authorLabel)}
+                  <View key={message.id} className="flex-row gap-3">
+                    <View
+                      className="h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: colors.tint }}>
+                      <Text className="text-[14px] font-black text-on-tint">
+                        {initialsForAuthor(authorLabel)}
+                      </Text>
+                    </View>
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-[14px] font-black text-text" numberOfLines={1}>
+                          {authorLabel}
                         </Text>
-                      </View>
-                      <View className="flex-1">
-                        <View className="gap-1 rounded-[18px] border border-border bg-surface px-3.5 py-3">
-                          {message.replyTo ? (
-                            <View className="mb-1 rounded-[12px] bg-background px-2.5 py-2">
-                              <Text className="text-[11px] font-black text-muted-text" numberOfLines={1}>
-                                {messageAuthorLabel(message.replyTo)}
-                              </Text>
-                              <Text className="text-[12px] leading-[17px] text-muted-text" numberOfLines={2}>
-                                {message.replyTo.body}
-                              </Text>
-                            </View>
-                          ) : null}
-                          <Text className="text-[12px] font-black text-muted-text" numberOfLines={1}>
-                            {authorLabel}
-                          </Text>
-                          <Text className="text-[15px] leading-[22px] text-text">{message.body}</Text>
-                          <Pressable
-                            onPress={() =>
-                              setReplyTarget({ authorLabel, body: message.body, id: message.id })
-                            }
-                            className="self-start pt-0.5"
-                            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-                            <Text className="text-[12px] font-black text-tint">Responder</Text>
-                          </Pressable>
-                        </View>
-                        <Text className="mt-1 px-1 text-[10px] font-bold text-muted-text">
+                        {isHost ? (
+                          <View
+                            className="rounded-full px-2 py-[2px]"
+                            style={{ backgroundColor: colors.tint }}>
+                            <Text className="text-[10px] font-black text-on-tint">Host</Text>
+                          </View>
+                        ) : null}
+                        <View className="flex-1" />
+                        <Text className="text-[11px] font-bold text-muted-text">
                           {formatMessageTime(message.createdAt)}
                         </Text>
                       </View>
+                      {message.replyTo ? (
+                        <View className="mt-2 rounded-[12px] bg-chip px-3 py-2">
+                          <Text className="text-[11px] font-black text-muted-text" numberOfLines={1}>
+                            {messageAuthorLabel(message.replyTo)}
+                          </Text>
+                          <Text className="text-[12px] leading-[17px] text-muted-text" numberOfLines={2}>
+                            {message.replyTo.body}
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Text className="mt-1.5 text-[14px] leading-[20px] text-text">
+                        {message.body}
+                      </Text>
+                      <Pressable
+                        onPress={() =>
+                          setReplyTarget({
+                            authorLabel: message.viewerIsAuthor ? 'Tú' : authorLabel,
+                            body: message.body,
+                            id: message.id,
+                          })
+                        }
+                        className="mt-1.5 self-start"
+                        hitSlop={6}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+                        <Text className="text-[12px] font-black text-tint">Responder</Text>
+                      </Pressable>
                     </View>
                   </View>
                 );
@@ -491,9 +544,9 @@ export default function MeetupDetailScreen() {
             />
           )}
 
-          <AppCard>
+          <View className="gap-2">
             {replyTarget ? (
-              <View className="mb-2 flex-row items-start justify-between gap-3 rounded-2xl bg-background px-3 py-2.5">
+              <View className="flex-row items-start justify-between gap-3 rounded-2xl bg-chip px-3 py-2.5">
                 <View className="flex-1">
                   <Text className="text-[12px] font-black text-tint" numberOfLines={1}>
                     Respondiendo a {replyTarget.authorLabel}
@@ -504,38 +557,69 @@ export default function MeetupDetailScreen() {
                 </View>
                 <Pressable
                   onPress={() => setReplyTarget(null)}
-                  className="rounded-full bg-chip px-3 py-1.5"
+                  hitSlop={8}
                   style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-                  <Text className="text-[12px] font-black text-text">Quitar</Text>
+                  <FontAwesome6 name="xmark" size={14} color={colors.mutedText} />
                 </Pressable>
               </View>
             ) : null}
-            <TextInput
-              value={commentBody}
-              onChangeText={setCommentBody}
-              placeholder={replyTarget ? 'Escribe tu respuesta' : 'Escribe un comentario'}
-              placeholderTextColor="#8C7F76"
-              multiline
-              maxLength={500}
-              editable={!sendMessageMutation.isPending}
-              className="min-h-[92px] rounded-2xl border border-border bg-background px-3 py-3 text-[14px] leading-[20px] text-text"
-            />
-            <View className="flex-row items-center justify-between gap-3">
-              <Text className="text-[11px] font-bold text-muted-text">{trimmedCommentBody.length}/500</Text>
+            <View
+              className="flex-row items-center gap-2 rounded-full border p-1.5"
+              style={{
+                backgroundColor: isDark ? colors.surface : '#FFFDF8',
+                borderColor: isDark ? colors.border : colors.tint,
+                borderWidth: isDark ? 1 : 1.5,
+                shadowColor: '#000',
+                shadowOffset: { height: 3, width: 0 },
+                shadowOpacity: isDark ? 0.1 : 0.14,
+                shadowRadius: 10,
+                elevation: 4,
+              }}>
+              <View
+                className="flex-1 justify-center rounded-full border px-3"
+                style={{
+                  backgroundColor: colors.inputBg,
+                  borderColor: isDark ? colors.border : '#F0D4AA',
+                  height: 44,
+                }}>
+                <TextInput
+                  value={commentBody}
+                  onChangeText={setCommentBody}
+                  placeholder={replyTarget ? 'Escribe tu respuesta...' : 'Escribe un comentario...'}
+                  placeholderTextColor={colors.mutedText}
+                  maxLength={500}
+                  editable={!sendMessageMutation.isPending}
+                  className="text-[14px] text-text"
+                  style={{ paddingVertical: 0 }}
+                />
+              </View>
               <Pressable
                 disabled={!trimmedCommentBody || sendMessageMutation.isPending}
                 onPress={handleSendComment}
+                accessibilityLabel="Enviar comentario"
                 style={({ pressed }) => ({
-                  opacity: pressed ? 0.75 : !trimmedCommentBody || sendMessageMutation.isPending ? 0.5 : 1,
-                })}
-                className="flex-row items-center gap-2 rounded-full bg-tint px-4 py-2">
-                <FontAwesome6 name="paper-plane" size={11} color={colors.onTint} />
-                <Text className="text-[13px] font-black text-on-tint">
-                  {sendMessageMutation.isPending ? 'Enviando...' : 'Enviar'}
-                </Text>
+                  alignItems: 'center',
+                  backgroundColor: colors.tint,
+                  borderColor: colors.tint,
+                  borderRadius: 22,
+                  borderWidth: 0,
+                  height: 44,
+                  justifyContent: 'center',
+                  opacity: pressed
+                    ? 0.8
+                    : !trimmedCommentBody || sendMessageMutation.isPending
+                      ? 0.7
+                      : 1,
+                  width: 44,
+                })}>
+                <View
+                  className="items-center justify-center rounded-full"
+                  style={{ backgroundColor: colors.tint, height: 44, width: 44 }}>
+                  <FontAwesome6 name="paper-plane" size={15} color={colors.onTint} solid />
+                </View>
               </Pressable>
             </View>
-          </AppCard>
+          </View>
         </View>
       ) : (
         <EmptyState

@@ -21,7 +21,9 @@ const meetupSchema = z.object({
   communityId: z.string().min(1),
   distanceKm: z.number().int().positive(),
   location: z.string().min(2),
-  startsAt: z.string().datetime(),
+  startsAt: z.string().datetime().refine((value) => new Date(value).getTime() > Date.now(), {
+    message: 'La fecha y hora tienen que ser futuras.',
+  }),
   title: z.string().min(2),
 });
 
@@ -52,9 +54,12 @@ export default function ModalScreen() {
   );
   const createMeetup = trpc.meetups.create.useMutation({
     onSuccess: async (_createdMeetup, variables) => {
-      await utils.meetups.upcomingPublic.invalidate();
-      await utils.communities.byId.invalidate({ id: variables.communityId });
-      await utils.profile.publicByUsername.invalidate();
+      await Promise.all([
+        utils.meetups.upcomingPublic.invalidate(),
+        utils.meetups.upcomingForViewer.invalidate(),
+        utils.communities.byId.invalidate({ id: variables.communityId }),
+        utils.profile.publicByUsername.invalidate(),
+      ]);
       router.back();
     },
     onError: (error) => {
@@ -65,11 +70,14 @@ export default function ModalScreen() {
     onSuccess: async (_updatedMeetup, variables) => {
       const editableCommunityId = editableMeetupQuery.data?.communityId;
 
-      await utils.meetups.upcomingPublic.invalidate();
-      await utils.profile.publicByUsername.invalidate();
-      if (editableCommunityId) {
-        await utils.communities.byId.invalidate({ id: editableCommunityId });
-      }
+      await Promise.all([
+        utils.meetups.upcomingPublic.invalidate(),
+        utils.meetups.upcomingForViewer.invalidate(),
+        utils.profile.publicByUsername.invalidate(),
+        editableCommunityId
+          ? utils.communities.byId.invalidate({ id: editableCommunityId })
+          : Promise.resolve(),
+      ]);
       if (variables.meetupId) {
         await utils.meetups.editableById.invalidate({ meetupId: variables.meetupId });
       }
@@ -149,6 +157,11 @@ export default function ModalScreen() {
       return;
     }
 
+    if (parsedDate.getTime() <= Date.now()) {
+      setFormError('La fecha y hora tienen que ser futuras.');
+      return;
+    }
+
     const parsed = meetupSchema.safeParse({
       communityId: values.communityId,
       distanceKm: parsedDistance,
@@ -158,7 +171,8 @@ export default function ModalScreen() {
     });
 
     if (!parsed.success) {
-      Alert.alert('Revisa la quedada', 'Completa título, lugar, distancia y fecha.');
+      const firstIssue = parsed.error.issues[0]?.message;
+      Alert.alert('Revisa la quedada', firstIssue ?? 'Completa título, lugar, distancia y fecha.');
       return;
     }
 

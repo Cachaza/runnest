@@ -1,9 +1,58 @@
 ---
-const contactHref = 'mailto:hola@apprunners.app?subject=Quiero%20probar%20AppRunners';
-const appPreviewStats = [
-  ['12', 'apuntados'],
-  ['7:30', 'domingo'],
-  ['8 km', 'ritmo suave'],
+const waitlistEndpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT ?? '/api/waitlist';
+const navLinks = [
+  ['#como-funciona', 'Cómo funciona'],
+  ['#comunidades', 'Comunidades'],
+  ['#quedadas', 'Quedadas'],
+];
+const features = [
+  {
+    tone: 'teal',
+    title: 'Encuentra comunidades',
+    body: 'Explora clubes y grupos de running por ciudad, ritmo y estilo.',
+    tags: ['Social', '10K Race Prep', 'Long Run'],
+    icon: 'users',
+  },
+  {
+    tone: 'orange',
+    title: 'Apúntate a quedadas',
+    body: 'Descubre salidas cerca de ti y apúntate en un solo toque.',
+    tags: ['5K', '10K', 'Media', 'Maratón'],
+    icon: 'calendar',
+  },
+  {
+    tone: 'teal',
+    title: 'Conoce runners afines',
+    body: 'Conecta con personas que comparten tu ritmo, objetivos y motivación.',
+    tags: ['Por ritmo', 'Por zona', 'Por objetivo'],
+    icon: 'runner',
+  },
+];
+const trustChips = [
+  ['mail', 'Sin spam', 'Solo novedades'],
+  ['key', 'Acceso anticipado', 'Sé de los primeros'],
+  ['heart', 'Producto hecho', 'por y para runners'],
+];
+const checklist = [
+  'Todo en una sola app',
+  'Fácil de usar y pensada para correr',
+  'Privacidad y comunidad, siempre primero',
+];
+const footerChips = [
+  ['mail', 'Sin spam, lo prometemos'],
+  ['shield', 'Acceso anticipado asegurado'],
+  ['heart', 'Hecho por y para la comunidad runner'],
+];
+// Placeholders para las capturas reales de la app.
+// Reemplaza el src por la ruta final en /public/screenshots/*.png cuando las tengas.
+const heroShots = [
+  { src: '/screenshots/home.png', alt: 'Pantalla principal de Runnest' },
+  { src: '/screenshots/communities.png', alt: 'Lista de comunidades en Runnest' },
+];
+const showcaseShots = [
+  { src: '/screenshots/community-detail.png', alt: 'Detalle de una comunidad' },
+  { src: '/screenshots/new-community.png', alt: 'Crear nueva comunidad' },
+  { src: '/screenshots/pace.png', alt: 'Configurar tu ritmo de running' },
 ];
 ---
 
@@ -11,99 +60,297 @@ const appPreviewStats = [
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#10383e" />
     <meta
       name="description"
-      content="AppRunners ayuda a grupos reales de runners a organizar quedadas, confirmar asistencia e invitar a gente nueva sin perderse en chats."
+      content="Runnest conecta a runners por ritmo y zona. Descubre comunidades, apúntate a quedadas y encuentra tu gente para correr."
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>AppRunners | Quedadas de running sin ruido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <title>Runnest · Tu sitio para correr</title>
   </head>
   <body>
-    <main>
-      <section class="hero">
+    <div class="page">
+      <header class="nav">
+        <a class="brand" href="#top" aria-label="Runnest">
+          <span class="brand__badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="17" cy="4" r="2" />
+              <path d="M15.5 8.5 12 11l-2.5 3L11 18l-3 4" />
+              <path d="M8 10.5 5.5 13 8 16" />
+              <path d="m13 13 3 2 3-1" />
+            </svg>
+          </span>
+          <span class="brand__name">Runnest</span>
+        </a>
+        <nav class="nav__links" aria-label="Navegación principal">
+          {navLinks.map(([href, label]) => <a href={href}>{label}</a>)}
+        </nav>
+        <a class="btn btn--primary nav__cta" href="#apuntate">Quiero enterarme</a>
+      </header>
+
+      <section class="hero" id="top">
         <div class="hero__content">
-          <p class="eyebrow">Para grupos reales de runners</p>
-          <h1>AppRunners</h1>
-          <p class="lead">
-            Organiza quedadas, confirma quién viene e invita a nuevos corredores sin convertir cada salida en un hilo infinito.
+          <span class="pill">Próximamente</span>
+          <h1>
+            Tu sitio para correr,
+            <span class="accent">muy pronto.</span>
+          </h1>
+          <p class="hero__lead">
+            Runnest conecta a runners por ritmo y zona. Descubre comunidades, apúntate
+            a quedadas y encuentra tu gente para correr.
           </p>
-          <div class="actions" aria-label="Acciones principales">
-            <a class="button button--primary" href={contactHref}>Pedir acceso</a>
-            <a class="button button--secondary" href="#como-funciona">Ver cómo funciona</a>
-          </div>
-        </div>
 
-        <div class="phone" aria-label="Vista previa de una quedada en AppRunners">
-          <div class="phone__status">
-            <span>AppRunners</span>
-            <span>Dom</span>
-          </div>
-          <div class="meetup">
-            <p class="meetup__label">Próxima quedada</p>
-            <h2>Salida por el río</h2>
-            <p>Domingo · 7:30 · Parque Grande</p>
-            <div class="stats">
-              {appPreviewStats.map(([value, label]) => (
-                <div class="stat">
-                  <strong>{value}</strong>
-                  <span>{label}</span>
+          <form class="capture" id="apuntate" action={waitlistEndpoint} method="post" data-waitlist-form novalidate>
+            <h2 class="capture__title">Apúntate para ser el primero</h2>
+            <p class="capture__sub">Te avisamos en cuanto abramos el acceso.</p>
+            <input type="hidden" name="source" value="landing-hero" />
+            <div class="capture__row">
+              <label class="capture__input">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="m3 7 9 6 9-6" />
+                </svg>
+                <input
+                  type="email"
+                  name="email"
+                  placeholder="Tu correo electrónico"
+                  autocomplete="email"
+                  inputmode="email"
+                  required
+                />
+              </label>
+              <button class="btn btn--primary" type="submit">Quiero enterarme</button>
+            </div>
+            <p class="capture__status" data-waitlist-status role="status" aria-live="polite"></p>
+            <p class="capture__foot">
+              <span aria-hidden="true">🇪🇸</span> Lanzamiento inicial en España · Acceso
+              anticipado próximamente
+            </p>
+          </form>
+
+          <ul class="trust" aria-label="Por qué apuntarte">
+            {trustChips.map(([icon, title, desc]) => (
+              <li>
+                <span class="trust__icon" aria-hidden="true">
+                  {icon === 'mail' && (
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+                  )}
+                  {icon === 'key' && (
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4" /><path d="m10.6 12.4 8.4-8.4 2 2-2 2 2 2-2 2-2-2-2 2" /></svg>
+                  )}
+                  {icon === 'heart' && (
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 22l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+                  )}
+                </span>
+                <div>
+                  <strong>{title}</strong>
+                  <span>{desc}</span>
                 </div>
-              ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div class="hero__visual" aria-hidden="true">
+          {heroShots.map((s, i) => (
+            <div class={`shot shot--${i === 0 ? 'front' : 'back'}`}>
+              <img src={s.src} alt={s.alt} loading="eager" />
             </div>
-            <div class="runners" aria-label="Corredores apuntados">
-              <span>AN</span>
-              <span>MR</span>
-              <span>LC</span>
-              <span>+9</span>
+          ))}
+        </div>
+      </section>
+
+      <section class="features" id="como-funciona">
+        {features.map((f) => (
+          <article class="feature">
+            <span class={`feature__icon feature__icon--${f.tone}`} aria-hidden="true">
+              {f.icon === 'users' && (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5" /><circle cx="17" cy="10" r="2.5" /><path d="M3 19c.8-3 3-4.5 6-4.5s5.2 1.5 6 4.5" /><path d="M15 19c.5-2 2-3 4-3s3.5 1 4 3" /></svg>
+              )}
+              {f.icon === 'calendar' && (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3" /></svg>
+              )}
+              {f.icon === 'runner' && (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="5" r="2" /><path d="M14.5 9.5 11 12l-2 3 2 4-3 4" /><path d="M8 11 5 13l2 3" /><path d="m12 14 3 1.5 3-1" /></svg>
+              )}
+            </span>
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
+            <div class="feature__tags">
+              {f.tags.map((t) => <span>{t}</span>)}
             </div>
+          </article>
+        ))}
+      </section>
+
+      <section class="showcase" id="quedadas">
+        <div class="showcase__phones" aria-hidden="true">
+          {showcaseShots.map((s, i) => (
+            <div class={`shot shot--sm${i === 1 ? ' shot--raised' : ''}`}>
+              <img src={s.src} alt={s.alt} loading="lazy" />
+            </div>
+          ))}
+        </div>
+
+        <div class="showcase__copy">
+          <p class="eyebrow eyebrow--muted">La app que te acompaña</p>
+          <h2>
+            Diseñada para <span class="accent">runners reales</span> como tú.
+          </h2>
+          <p>
+            Publica quedadas, crea tu comunidad, sigue tu ritmo y encuentra tu sitio para
+            correr.
+          </p>
+          <ul class="check">
+            {checklist.map((item) => (
+              <li>
+                <span class="check__mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10" /></svg>
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section class="final" id="comunidades">
+        <div class="final__inner">
+          <div class="final__copy">
+            <span class="pill">Próximamente</span>
+            <h2>Sé de los primeros en formar parte.</h2>
+            <p>Apúntate y te avisaremos en cuanto abramos el acceso anticipado.</p>
           </div>
+          <form class="final__form" action={waitlistEndpoint} method="post" data-waitlist-form novalidate>
+            <input type="hidden" name="source" value="landing-footer" />
+            <label class="capture__input capture__input--dark">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+              <input
+                type="email"
+                name="email"
+                placeholder="Tu correo electrónico"
+                autocomplete="email"
+                inputmode="email"
+                required
+              />
+            </label>
+            <button class="btn btn--primary" type="submit">Notifícame</button>
+            <p class="capture__status" data-waitlist-status role="status" aria-live="polite"></p>
+          </form>
         </div>
+        <ul class="final__chips">
+          {footerChips.map(([icon, label]) => (
+            <li>
+              <span aria-hidden="true">
+                {icon === 'mail' && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+                )}
+                {icon === 'shield' && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z" /></svg>
+                )}
+                {icon === 'heart' && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 22l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+                )}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ul>
       </section>
+    </div>
+    <script>
+      const waitlistForms = document.querySelectorAll('[data-waitlist-form]');
 
-      <section id="como-funciona" class="section">
-        <div class="section__header">
-          <p class="eyebrow">Menos fricción que WhatsApp</p>
-          <h2>Lo necesario para que el grupo salga a correr</h2>
-        </div>
-        <div class="features">
-          <article>
-            <span class="icon">01</span>
-            <h3>Crea la quedada</h3>
-            <p>Distancia, punto de salida, hora y ritmo en una vista clara que cualquiera puede revisar.</p>
-          </article>
-          <article>
-            <span class="icon">02</span>
-            <h3>Confirma asistencia</h3>
-            <p>El grupo ve al instante quién viene, sin contar mensajes ni reacciones dispersas.</p>
-          </article>
-          <article>
-            <span class="icon">03</span>
-            <h3>Invita fácil</h3>
-            <p>Un código permite meter a alguien nuevo en el grupo antes de la próxima salida.</p>
-          </article>
-        </div>
-      </section>
+      waitlistForms.forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
 
-      <section class="cta">
-        <div>
-          <p class="eyebrow">Primeros grupos</p>
-          <h2>Estamos abriendo acceso a grupos pequeños.</h2>
-        </div>
-        <a class="button button--primary" href={contactHref}>Quiero probarlo</a>
-      </section>
-    </main>
+          const currentForm = event.currentTarget;
+          if (!(currentForm instanceof HTMLFormElement)) {
+            return;
+          }
+
+          const status = currentForm.querySelector('[data-waitlist-status]');
+          const submitButton = currentForm.querySelector('button[type="submit"]');
+          const formData = new FormData(currentForm);
+
+          if (submitButton instanceof HTMLButtonElement) {
+            submitButton.disabled = true;
+            submitButton.dataset.originalText = submitButton.textContent ?? '';
+            submitButton.textContent = 'Guardando...';
+          }
+
+          if (status instanceof HTMLElement) {
+            status.textContent = '';
+            status.dataset.state = '';
+          }
+
+          try {
+            const response = await fetch(currentForm.action, {
+              body: formData,
+              method: 'POST',
+            });
+            const result = await response.json().catch(() => null);
+            const message = result?.message ?? (
+              response.ok
+                ? 'Te avisaremos cuando abramos el acceso.'
+                : 'No hemos podido guardar tu correo. Inténtalo de nuevo.'
+            );
+
+            if (!response.ok) {
+              throw new Error(message);
+            }
+
+            currentForm.reset();
+
+            if (status instanceof HTMLElement) {
+              status.textContent = message;
+              status.dataset.state = 'success';
+            }
+          } catch (error) {
+            if (status instanceof HTMLElement) {
+              status.textContent = error instanceof Error
+                ? error.message
+                : 'No hemos podido guardar tu correo. Inténtalo de nuevo.';
+              status.dataset.state = 'error';
+            }
+          } finally {
+            if (submitButton instanceof HTMLButtonElement) {
+              submitButton.disabled = false;
+              submitButton.textContent = submitButton.dataset.originalText ?? 'Enviar';
+            }
+          }
+        });
+      });
+    </script>
   </body>
 </html>
 
 <style>
   :root {
-    color-scheme: light;
-    font-family:
-      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      sans-serif;
-    background: #f7f3ec;
-    color: #17201b;
+    --background: #f6ebd8;
+    --surface: #fff9f0;
+    --hero: #10383e;
+    --hero-2: #0b2c31;
+    --hero-text: #fff8f2;
+    --hero-text-muted: #c9d7d8;
+    --hero-accent: #ffb36b;
+    --border: #e8d6ba;
+    --text: #20201c;
+    --muted-text: #745f48;
+    --tint: #e65f22;
+    --tint-dark: #c94f18;
+    --on-tint: #fff8ec;
+    --success: #4f7d52;
+    --chip: #f2dfc2;
+    --card: #fffdf6;
   }
 
   * {
@@ -112,299 +359,660 @@ const appPreviewStats = [
 
   html {
     scroll-behavior: smooth;
+    color-scheme: light;
   }
 
   body {
     margin: 0;
     min-width: 320px;
-    background:
-      linear-gradient(140deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0) 44%),
-      #f7f3ec;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--background);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  h1, h2, h3, h4, p {
+    margin: 0;
   }
 
   a {
     color: inherit;
   }
 
-  main {
-    overflow: hidden;
-  }
-
-  .hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-    gap: clamp(2rem, 7vw, 6rem);
-    align-items: center;
-    min-height: 88vh;
-    padding: clamp(2rem, 5vw, 4.5rem);
-    padding-bottom: clamp(3.5rem, 7vw, 6rem);
-    border-bottom: 1px solid rgba(23, 32, 27, 0.12);
-  }
-
-  .hero__content {
-    max-width: 720px;
-  }
-
-  .eyebrow {
-    margin: 0 0 0.9rem;
-    color: #236a53;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
-  h1,
-  h2,
-  h3,
-  p {
-    margin-top: 0;
-  }
-
-  h1 {
-    margin-bottom: 1rem;
-    font-size: clamp(3.6rem, 12vw, 9rem);
-    line-height: 0.9;
-    letter-spacing: 0;
-  }
-
-  .lead {
-    max-width: 660px;
-    margin-bottom: 2rem;
-    color: #334139;
-    font-size: clamp(1.2rem, 2.2vw, 1.7rem);
-    line-height: 1.35;
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-  }
-
-  .button {
-    display: inline-flex;
-    min-height: 48px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    padding: 0.85rem 1.1rem;
-    font-weight: 800;
-    text-decoration: none;
-    transition:
-      transform 160ms ease,
-      box-shadow 160ms ease,
-      background-color 160ms ease;
-  }
-
-  .button:hover {
-    transform: translateY(-1px);
-  }
-
-  .button--primary {
-    background: #17201b;
-    color: #fffdfa;
-    box-shadow: 0 12px 30px rgba(23, 32, 27, 0.18);
-  }
-
-  .button--secondary {
-    border: 1px solid rgba(23, 32, 27, 0.2);
-    background: rgba(255, 255, 255, 0.52);
-    color: #17201b;
-  }
-
-  .phone {
-    width: min(100%, 390px);
-    margin-inline: auto;
-    border: 10px solid #17201b;
-    border-radius: 36px;
-    background: #fffdfa;
-    box-shadow: 0 28px 80px rgba(23, 32, 27, 0.22);
-    overflow: hidden;
-  }
-
-  .phone__status {
-    display: flex;
-    justify-content: space-between;
-    padding: 1.1rem 1.2rem;
-    color: #64716a;
-    font-size: 0.82rem;
-    font-weight: 800;
-  }
-
-  .meetup {
-    margin: 0 1rem 1rem;
-    border-radius: 8px;
-    padding: 1.15rem;
-    background: #eaf5ef;
-  }
-
-  .meetup__label {
-    margin-bottom: 0.35rem;
-    color: #236a53;
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-transform: uppercase;
-  }
-
-  .meetup h2 {
-    margin-bottom: 0.45rem;
-    font-size: 2rem;
-    line-height: 1;
-  }
-
-  .meetup p:not(.meetup__label) {
-    color: #4b5d52;
-  }
-
-  .stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.55rem;
-    margin: 1rem 0;
-  }
-
-  .stat {
-    min-width: 0;
-    border-radius: 8px;
-    padding: 0.75rem;
-    background: #fffdfa;
-  }
-
-  .stat strong,
-  .stat span {
+  img {
+    max-width: 100%;
+    height: auto;
     display: block;
   }
 
-  .stat strong {
-    font-size: 1.1rem;
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0.75rem;
   }
 
-  .stat span {
-    color: #64716a;
-    font-size: 0.74rem;
+  /* ---------- Header ---------- */
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0.25rem 1rem;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 800;
+    font-size: 1.05rem;
+    text-decoration: none;
+    color: var(--text);
+  }
+
+  .brand__badge {
+    display: inline-grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--tint);
+    color: var(--on-tint);
+  }
+
+  .nav__links {
+    display: none;
+    gap: 1.4rem;
+    margin-inline: auto;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #3a362e;
+  }
+
+  .nav__links a {
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .nav__links a:hover {
+    color: var(--tint);
+  }
+
+  .nav__cta {
+    margin-left: auto;
+    padding: 0.55rem 0.95rem;
+    font-size: 0.88rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 0;
+    border-radius: 999px;
+    padding: 0.85rem 1.2rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+
+  .btn--primary {
+    background: var(--tint);
+    color: var(--on-tint);
+    box-shadow: 0 10px 24px rgba(230, 95, 34, 0.28);
+  }
+
+  .btn--primary:hover,
+  .btn--primary:active {
+    background: var(--tint-dark);
+  }
+
+  .btn--primary:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn:disabled {
+    cursor: wait;
+    opacity: 0.72;
+    transform: none;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    border-radius: 22px;
+    padding: 1.5rem 1.25rem 2rem;
+    background: radial-gradient(120% 90% at 0% 0%, #14444b 0%, var(--hero) 45%, var(--hero-2) 100%);
+    color: var(--hero-text);
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 40% at 100% 0%, rgba(255, 179, 107, 0.15), transparent 60%),
+      radial-gradient(40% 40% at 10% 100%, rgba(255, 255, 255, 0.05), transparent 60%);
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .hero__content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--hero-accent);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    margin: 1rem 0 0.9rem;
+    font-size: 2.25rem;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+  }
+
+  .accent {
+    color: var(--tint);
+  }
+
+  .hero__lead {
+    margin-bottom: 1.4rem;
+    color: var(--hero-text-muted);
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .capture {
+    padding: 1rem;
+    border-radius: 16px;
+    background: rgba(10, 35, 39, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+  }
+
+  .capture__title {
+    font-size: 1rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+  }
+
+  .capture__sub {
+    color: var(--hero-text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .capture__row {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .capture__input {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--hero-text-muted);
+    min-height: 48px;
+  }
+
+  .capture__input input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hero-text);
+    font: inherit;
+    outline: none;
+    font-size: 16px; /* evita zoom iOS */
+  }
+
+  .capture__input input::placeholder {
+    color: rgba(255, 248, 242, 0.55);
+  }
+
+  .capture__foot {
+    margin-top: 0.75rem;
+    color: var(--hero-text-muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  .capture__status {
+    min-height: 1.2rem;
+    margin-top: 0.65rem;
+    color: var(--hero-text-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  .capture__status[data-state='success'] {
+    color: var(--hero-accent);
+  }
+
+  .capture__status[data-state='error'] {
+    color: #ffb19f;
+  }
+
+  .trust {
+    list-style: none;
+    margin: 1.4rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .trust li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--hero-text-muted);
+  }
+
+  .trust strong {
+    display: block;
+    color: var(--hero-text);
+    font-size: 0.85rem;
+  }
+
+  .trust__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--hero-accent);
+    flex-shrink: 0;
+  }
+
+  /* ---------- Screenshots ---------- */
+  .hero__visual {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 1.75rem;
+    perspective: 1200px;
+  }
+
+  .shot {
+    position: relative;
+    flex: 0 0 auto;
+    width: min(48%, 200px);
+    border-radius: 26px;
+    background: #050b0d;
+    padding: 6px;
+    box-shadow:
+      0 24px 48px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+  }
+
+  .shot img {
+    border-radius: 20px;
+    width: 100%;
+    display: block;
+    aspect-ratio: 9 / 19.5;
+    object-fit: cover;
+    background: #1a1410; /* placeholder mientras no llega la imagen */
+  }
+
+  .shot--front {
+    transform: rotate(-2deg);
+    z-index: 2;
+  }
+
+  .shot--back {
+    transform: translateY(12px) rotate(3deg);
+  }
+
+  /* ---------- Features ---------- */
+  .features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .feature {
+    padding: 1.25rem;
+    border-radius: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .feature__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    margin-bottom: 0.85rem;
+  }
+
+  .feature__icon--teal {
+    background: var(--hero);
+    color: var(--hero-accent);
+  }
+
+  .feature__icon--orange {
+    background: var(--tint);
+    color: var(--on-tint);
+  }
+
+  .feature h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin-bottom: 0.35rem;
+  }
+
+  .feature p {
+    color: var(--muted-text);
+    font-size: 0.92rem;
+    margin-bottom: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .feature__tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  .feature__tags span {
+    display: inline-flex;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--chip);
+    color: var(--muted-text);
+    font-size: 0.72rem;
     font-weight: 700;
   }
 
-  .runners {
-    display: flex;
-    gap: 0.45rem;
-  }
-
-  .runners span {
-    display: inline-grid;
-    width: 42px;
-    height: 42px;
-    place-items: center;
-    border-radius: 50%;
-    background: #17201b;
-    color: #fffdfa;
-    font-size: 0.8rem;
-    font-weight: 900;
-  }
-
-  .section {
-    padding: clamp(3rem, 6vw, 5.5rem) clamp(1.25rem, 5vw, 4.5rem);
-  }
-
-  .section__header {
-    max-width: 760px;
-    margin-bottom: 2rem;
-  }
-
-  .section h2,
-  .cta h2 {
-    margin-bottom: 0;
-    font-size: clamp(2rem, 5vw, 4.5rem);
-    line-height: 0.98;
-    letter-spacing: 0;
-  }
-
-  .features {
+  /* ---------- Showcase ---------- */
+  .showcase {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
+    gap: 1.25rem;
+    padding: 1.5rem 0.25rem;
   }
 
-  .features article {
-    min-height: 220px;
-    border: 1px solid rgba(23, 32, 27, 0.12);
-    border-radius: 8px;
-    padding: 1.25rem;
-    background: #fffdfa;
+  .showcase__phones {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    align-items: end;
   }
 
-  .icon {
+  .shot--sm {
+    width: 100%;
+    border-radius: 18px;
+    padding: 4px;
+  }
+
+  .shot--sm img {
+    border-radius: 14px;
+  }
+
+  .shot--raised {
+    transform: translateY(-12px);
+  }
+
+  .eyebrow--muted {
     display: inline-block;
-    margin-bottom: 1.8rem;
-    color: #236a53;
-    font-size: 0.84rem;
-    font-weight: 900;
-  }
-
-  .features h3 {
+    color: var(--muted-text);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     margin-bottom: 0.7rem;
-    font-size: 1.35rem;
   }
 
-  .features p {
-    margin-bottom: 0;
-    color: #4b5d52;
+  .showcase__copy h2 {
+    font-size: 1.8rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+  }
+
+  .showcase__copy > p {
+    color: var(--muted-text);
+    font-size: 0.98rem;
     line-height: 1.55;
+    margin-bottom: 1.1rem;
   }
 
-  .cta {
+  .check {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .check li {
     display: flex;
-    gap: 1.5rem;
     align-items: center;
-    justify-content: space-between;
-    padding: clamp(2.2rem, 5vw, 4.5rem);
-    background: #dcece4;
+    gap: 0.6rem;
+    font-size: 0.95rem;
   }
 
-  .cta > div {
-    max-width: 760px;
+  .check__mark {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(79, 125, 82, 0.15);
+    color: var(--success);
+    flex-shrink: 0;
   }
 
-  @media (max-width: 860px) {
-    .hero {
-      grid-template-columns: 1fr;
-      min-height: auto;
+  /* ---------- Final CTA ---------- */
+  .final {
+    border-radius: 22px;
+    padding: 1.75rem 1.25rem;
+    background: radial-gradient(120% 90% at 100% 0%, #14444b, var(--hero) 60%, var(--hero-2));
+    color: var(--hero-text);
+    margin-bottom: 1rem;
+  }
+
+  .final__inner {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .final__copy h2 {
+    margin: 0.65rem 0 0.35rem;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  .final__copy p {
+    color: var(--hero-text-muted);
+    font-size: 0.95rem;
+  }
+
+  .final__form {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .final__form .capture__status {
+    margin-top: 0;
+  }
+
+  .capture__input--dark {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .final__chips {
+    list-style: none;
+    padding: 1rem 0 0;
+    margin: 1.25rem 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    gap: 0.75rem;
+    color: var(--hero-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .final__chips li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .final__chips li span {
+    color: var(--hero-accent);
+    display: inline-flex;
+  }
+
+  /* ---------- Tablet / desktop ---------- */
+  @media (min-width: 720px) {
+    .page {
+      padding: 1.25rem;
     }
 
-    .phone {
-      max-width: 360px;
+    .nav {
+      gap: 1.5rem;
+      padding: 0.5rem 0.25rem 1.25rem;
+    }
+
+    .nav__links {
+      display: flex;
+    }
+
+    .brand {
+      font-size: 1.15rem;
+    }
+
+    .brand__badge {
+      width: 34px;
+      height: 34px;
+    }
+
+    .nav__cta {
+      padding: 0.7rem 1.1rem;
+      font-size: 1rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 2.5rem;
+      align-items: center;
+      padding: 2.5rem;
+      border-radius: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.6rem, 5vw, 3.8rem);
+    }
+
+    .hero__lead {
+      font-size: 1.05rem;
+      max-width: 36ch;
+    }
+
+    .capture,
+    .trust {
+      max-width: 520px;
+    }
+
+    .capture__row {
+      grid-template-columns: 1fr auto;
+    }
+
+    .trust {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .hero__visual {
+      margin-top: 0;
+      gap: 1rem;
+    }
+
+    .shot {
+      width: min(100%, 240px);
     }
 
     .features {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0;
     }
 
-    .cta {
-      display: block;
+    .showcase {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 2.5rem;
+      align-items: center;
+      padding: 2rem;
     }
 
-    .cta .button {
-      margin-top: 1.4rem;
-    }
-  }
-
-  @media (max-width: 520px) {
-    .hero {
-      padding-inline: 1.25rem;
+    .showcase__phones {
+      gap: 0.6rem;
     }
 
-    h1 {
-      font-size: clamp(3.1rem, 18vw, 4.8rem);
+    .showcase__copy h2 {
+      font-size: clamp(1.9rem, 3.4vw, 2.6rem);
     }
 
-    .actions,
-    .button {
-      width: 100%;
+    .final {
+      padding: 2.25rem;
+      border-radius: 26px;
     }
 
-    .stats {
-      grid-template-columns: 1fr;
+    .final__inner {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      align-items: center;
+    }
+
+    .final__copy h2 {
+      font-size: clamp(1.6rem, 2.6vw, 2rem);
+    }
+
+    .final__form {
+      grid-template-columns: 1fr auto;
+    }
+
+    .final__form .capture__status {
+      grid-column: 1 / -1;
+    }
+
+    .final__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
     }
   }
 </style>

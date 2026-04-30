@@ -60,7 +60,9 @@ const communityRoleSchema = z.enum(['owner', 'admin', 'moderator', 'host', 'memb
 const meetupUpsertSchema = z.object({
   distanceKm: z.number().int().positive(),
   location: z.string().min(2),
-  startsAt: z.string().datetime(),
+  startsAt: z.string().datetime().refine((value) => new Date(value).getTime() > Date.now(), {
+    message: 'La fecha y hora tienen que ser futuras.',
+  }),
   title: z.string().min(2),
 })
 

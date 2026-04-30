@@ -11,6 +11,7 @@ type TabIconName = React.ComponentProps<typeof FontAwesome6>['name'];
 const TAB_META: Record<string, { icon: TabIconName; title: string }> = {
   index: { icon: 'calendar-day', title: 'Hoy' },
   communities: { icon: 'users', title: 'Grupos' },
+  quedadas: { icon: 'person-running', title: 'Quedadas' },
   profile: { icon: 'circle-user', title: 'Perfil' },
 };
 
@@ -18,7 +19,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  const bottomOffset = Math.max(insets.bottom, Platform.select({ ios: 18, default: 14 }) ?? 14);
+  const bottomOffset = Math.max(insets.bottom, Platform.select({ ios: 10, default: 10 }) ?? 10);
 
   return (
     <View
@@ -28,8 +29,8 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBarPill,
           {
-            backgroundColor: colors.surface,
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(92,72,51,0.08)',
+            backgroundColor: isDark ? colors.surface : 'rgba(255,248,236,0.96)',
+            borderColor: isDark ? 'rgba(255,255,255,0.06)' : colors.border,
             shadowColor: isDark ? '#000' : '#5C4833',
             shadowOpacity: isDark ? 0.5 : 0.2,
           },
@@ -73,7 +74,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   styles.tabItem,
                   focused
                     ? {
-                        backgroundColor: colors.chip,
+                        backgroundColor: 'transparent',
                         shadowColor: isDark ? '#000' : '#5C4833',
                         shadowOpacity: isDark ? 0.18 : 0.1,
                       }
@@ -114,15 +115,21 @@ export default function TabLayout() {
         headerShown: false,
       }}>
       <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Hoy',
+        }}
+      />
+      <Tabs.Screen
         name="communities"
         options={{
           title: 'Grupos',
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="quedadas"
         options={{
-          title: 'Hoy',
+          title: 'Quedadas',
         }}
       />
       <Tabs.Screen
@@ -144,18 +151,18 @@ const styles = StyleSheet.create({
   },
   tabBarPill: {
     alignItems: 'stretch',
-    borderRadius: 999,
+    borderRadius: 22,
     borderWidth: 1,
     elevation: 18,
     flexDirection: 'row',
-    gap: 8,
+    gap: 2,
     justifyContent: 'space-between',
-    maxWidth: 390,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 22,
-    width: '88%',
+    maxWidth: 380,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    shadowOffset: { width: 0, height: 7 },
+    shadowRadius: 16,
+    width: '92%',
   },
   tabSlot: {
     alignItems: 'center',
@@ -164,13 +171,13 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    borderRadius: 999,
+    borderRadius: 16,
     flexDirection: 'column',
-    gap: 4,
+    gap: 3,
     justifyContent: 'center',
-    minHeight: 62,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 50,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 10,
     width: '100%',
@@ -184,7 +191,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     alignSelf: 'center',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.1,
     textAlign: 'center',
