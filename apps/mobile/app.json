@@ -16,6 +16,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "app.runnest.mobile",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -36,6 +38,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0686a800-778b-4885-86c4-8e71e87c4a13"
+      }
     }
   }
 }

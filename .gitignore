@@ -10,4 +10,5 @@ coverage
 .env.*.local
 apps/mobile/.expo
 apps/mobile/node_modules
+apps/mobile/google-services.json
 apps/api/node_modules

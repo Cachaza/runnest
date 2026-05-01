@@ -20,6 +20,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   const bottomOffset = Math.max(insets.bottom, Platform.select({ ios: 10, default: 10 }) ?? 10);
+  const activeTabColor = isDark ? colors.tint : colors.hero;
 
   return (
     <View
@@ -29,10 +30,10 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBarPill,
           {
-            backgroundColor: isDark ? colors.surface : 'rgba(255,248,236,0.96)',
-            borderColor: isDark ? 'rgba(255,255,255,0.06)' : colors.border,
-            shadowColor: isDark ? '#000' : '#5C4833',
-            shadowOpacity: isDark ? 0.5 : 0.2,
+            backgroundColor: isDark ? 'rgba(26,30,34,0.96)' : 'rgba(255,255,255,0.96)',
+            borderColor: isDark ? 'rgba(199,244,100,0.16)' : colors.border,
+            shadowColor: isDark ? '#000' : colors.hero,
+            shadowOpacity: isDark ? 0.45 : 0.14,
           },
         ]}>
         {state.routes.map((route, index) => {
@@ -74,9 +75,9 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   styles.tabItem,
                   focused
                     ? {
-                        backgroundColor: 'transparent',
-                        shadowColor: isDark ? '#000' : '#5C4833',
-                        shadowOpacity: isDark ? 0.18 : 0.1,
+                        backgroundColor: isDark ? 'rgba(199,244,100,0.12)' : 'rgba(199,244,100,0.28)',
+                        shadowColor: isDark ? '#000' : colors.hero,
+                        shadowOpacity: isDark ? 0.16 : 0.08,
                       }
                     : null,
                   { opacity: pressed ? 0.75 : 1 },
@@ -85,7 +86,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   <FontAwesome6
                     name={meta.icon}
                     size={20}
-                    color={focused ? colors.tabIconSelected : colors.tabIconDefault}
+                    color={focused ? activeTabColor : colors.tabIconDefault}
                     solid
                   />
                 </View>
@@ -93,7 +94,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   numberOfLines={1}
                   style={[
                     styles.tabLabel,
-                    { color: focused ? colors.tabIconSelected : colors.tabIconDefault },
+                    { color: focused ? activeTabColor : colors.tabIconDefault },
                   ]}>
                   {label}
                 </Text>
