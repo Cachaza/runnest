@@ -1,6 +1,6 @@
 # Community Vision
 
-> Nota operativa: este documento sigue definiendo el modelo conceptual de largo plazo. Durante el ciclo actual de validación con un grupo real, toda la capa `managed` / creator / monetización queda dormida en la UI principal salvo donde ya exista como infraestructura o compatibilidad interna.
+> Nota operativa MVP: el ciclo actual se centra en comunidades `collaborative` para crews locales. El modo `managed` se preserva en el modelo y en las reglas de permisos, pero queda fuera de la UX principal y fuera de v1 salvo compatibilidad interna.
 
 ## Summary
 
@@ -120,12 +120,22 @@ Core fields:
 
 Core fields:
 
+- `id`
 - `communityId`
 - `createdByUserId`
 - `title`
 - `startsAt`
+- `meetingPoint`
+- `distanceKm`
+- `paceRange`
+- `level`
+- `runType`
+- `capacity`
+- `notes`
 - `visibility`
-- `accessTier`
+- `status`
+
+For the MVP-level run and RSVP rules, see [runs.md](./runs.md).
 
 ## Initial Permission Matrix
 

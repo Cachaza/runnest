@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { vars } from 'nativewind';
 
 import Colors from '@/constants/Colors';
+import { hexToRgbTriplet } from '@/lib/colors';
 
 export type AppColorScheme = 'light' | 'dark';
 
@@ -17,51 +18,49 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+type ColorToken = keyof typeof Colors.light;
+
+const cssVariableByToken: Record<ColorToken, `--color-${string}`> = {
+  background: '--color-background',
+  accentBorder: '--color-accent-border',
+  badgeCool: '--color-badge-cool',
+  badgeNeutral: '--color-badge-neutral',
+  badgeWarm: '--color-badge-warm',
+  border: '--color-border',
+  chip: '--color-chip',
+  danger: '--color-danger',
+  dangerSurface: '--color-danger-surface',
+  elevatedSurface: '--color-elevated-surface',
+  hero: '--color-hero',
+  heroAccent: '--color-hero-accent',
+  heroOverlay: '--color-hero-overlay',
+  heroText: '--color-hero-text',
+  heroTextMuted: '--color-hero-text-muted',
+  inputBg: '--color-input-bg',
+  mutedText: '--color-muted-text',
+  onAccent: '--color-on-accent',
+  onTint: '--color-on-tint',
+  shadow: '--color-shadow',
+  success: '--color-success',
+  surface: '--color-surface',
+  tabIconDefault: '--color-tab-icon-default',
+  tabIconSelected: '--color-tab-icon-selected',
+  text: '--color-text',
+  tint: '--color-tint',
+};
+
+function createThemeVariables(colors: typeof Colors.light) {
+  return vars(
+    Object.entries(cssVariableByToken).reduce<Record<string, string>>((themeVars, [token, variable]) => {
+      themeVars[variable] = hexToRgbTriplet(colors[token as ColorToken]);
+      return themeVars;
+    }, {}),
+  );
+}
+
 const themeVariables = {
-  dark: vars({
-    '--color-background': '13 18 24',
-    '--color-badge-cool': '53 73 92',
-    '--color-badge-neutral': '41 53 65',
-    '--color-badge-warm': '189 231 94',
-    '--color-border': '44 57 71',
-    '--color-chip': '36 49 65',
-    '--color-danger': '255 115 115',
-    '--color-danger-surface': '59 30 36',
-    '--color-hero': '21 50 74',
-    '--color-hero-accent': '199 244 100',
-    '--color-hero-text': '255 255 255',
-    '--color-hero-text-muted': '215 224 234',
-    '--color-input-bg': '18 26 35',
-    '--color-muted-text': '170 180 192',
-    '--color-on-accent': '21 50 74',
-    '--color-on-tint': '21 50 74',
-    '--color-success': '169 217 90',
-    '--color-surface': '26 30 34',
-    '--color-text': '246 247 251',
-    '--color-tint': '199 244 100',
-  }),
-  light: vars({
-    '--color-background': '246 247 251',
-    '--color-badge-cool': '220 232 242',
-    '--color-badge-neutral': '239 243 246',
-    '--color-badge-warm': '234 251 193',
-    '--color-border': '228 233 239',
-    '--color-chip': '237 242 246',
-    '--color-danger': '201 67 67',
-    '--color-danger-surface': '252 236 236',
-    '--color-hero': '21 50 74',
-    '--color-hero-accent': '199 244 100',
-    '--color-hero-text': '255 255 255',
-    '--color-hero-text-muted': '215 224 234',
-    '--color-input-bg': '255 255 255',
-    '--color-muted-text': '92 102 115',
-    '--color-on-accent': '21 50 74',
-    '--color-on-tint': '21 50 74',
-    '--color-success': '107 157 36',
-    '--color-surface': '255 255 255',
-    '--color-text': '26 30 34',
-    '--color-tint': '199 244 100',
-  }),
+  dark: createThemeVariables(Colors.dark),
+  light: createThemeVariables(Colors.light),
 };
 
 function normalizeScheme(scheme: ReturnType<typeof useSystemColorScheme>): AppColorScheme {

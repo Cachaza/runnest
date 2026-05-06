@@ -15,6 +15,7 @@ import { authClient } from '@/lib/auth-client';
 import {
   labelForMeetupStyle,
 } from '@/lib/community-labels';
+import { hexToRgba } from '@/lib/colors';
 import { trpc } from '@/lib/trpc';
 
 function formatDayMonth(startsAt: string | Date) {
@@ -45,6 +46,9 @@ export default function TodayScreen() {
   const nextMeetup = viewerMeetupsQuery.data?.[0];
   const upcomingMeetups = viewerMeetupsQuery.data?.slice(1, 4) ?? [];
   const memberships = myMembershipsQuery.data ?? [];
+  const heroBorderColor = hexToRgba(colors.heroOverlay, 0.1);
+  const heroIconSurface = hexToRgba(colors.heroOverlay, 0.08);
+  const heroIconSurfaceStrong = hexToRgba(colors.heroOverlay, 0.18);
 
   const { onRefresh, refreshing } = usePullToRefresh(async () => {
     await Promise.all([
@@ -72,7 +76,7 @@ export default function TodayScreen() {
             accessibilityLabel="Notificaciones"
             style={({ pressed }) => ({
               opacity: pressed ? 0.75 : 1,
-              backgroundColor: 'rgba(255,255,255,0.08)',
+              backgroundColor: heroIconSurface,
               borderRadius: 999,
               height: 40,
               width: 40,
@@ -92,18 +96,18 @@ export default function TodayScreen() {
             className="flex-1 items-center gap-2 rounded-card border border-tint/30 bg-tint px-3 py-3">
             <View
               className="h-9 w-9 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
+              style={{ backgroundColor: heroIconSurfaceStrong }}>
               <FontAwesome6 name="plus" size={15} color={colors.onTint} solid />
             </View>
             <Text className="text-[11px] font-black text-on-tint">Quedada</Text>
           </Pressable>
           <Link href="/community-access" asChild>
             <Pressable
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              className="flex-1 items-center gap-2 rounded-card border px-3 py-3"
+              style={({ pressed }) => ({ borderColor: heroBorderColor, opacity: pressed ? 0.75 : 1 })}>
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                style={{ backgroundColor: heroIconSurface }}>
                 <FontAwesome6 name="key" size={15} color={colors.heroText} solid />
               </View>
               <Text className="text-[11px] font-black text-hero-text">Código</Text>
@@ -111,11 +115,11 @@ export default function TodayScreen() {
           </Link>
           <Link href="/communities" asChild>
             <Pressable
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              style={({ pressed }) => ({ borderColor: heroBorderColor, opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border px-3 py-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                style={{ backgroundColor: heroIconSurface }}>
                 <FontAwesome6 name="users" size={15} color={colors.heroText} solid />
               </View>
               <Text className="text-[11px] font-black text-hero-text">Grupos</Text>
@@ -125,7 +129,7 @@ export default function TodayScreen() {
 
         {/* Stats */}
         <View className="flex-row gap-3">
-          <View className="flex-1 rounded-card border border-white/10 px-4 py-3">
+          <View className="flex-1 rounded-card border px-4 py-3" style={{ borderColor: heroBorderColor }}>
             {myMembershipsQuery.isPending ? (
               <ActivityIndicator color={colors.heroAccent} size="small" />
             ) : (
@@ -133,7 +137,7 @@ export default function TodayScreen() {
             )}
             <Text className="mt-1 text-[12px] font-bold text-hero-text-muted">Comunidades</Text>
           </View>
-          <View className="flex-1 rounded-card border border-white/10 px-4 py-3">
+          <View className="flex-1 rounded-card border px-4 py-3" style={{ borderColor: heroBorderColor }}>
             {viewerMeetupsQuery.isPending ? (
               <ActivityIndicator color={colors.heroAccent} size="small" />
             ) : (

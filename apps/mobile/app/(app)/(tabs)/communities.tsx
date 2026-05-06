@@ -26,6 +26,7 @@ import {
   labelForVisibility,
 } from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
+import { hexToRgba } from '@/lib/colors';
 import { trpc } from '@/lib/trpc';
 
 type TabValue = 'discover' | 'spaces' | 'inbox';
@@ -219,6 +220,10 @@ export default function CommunitiesScreen() {
   );
   const inboxBadge = pendingInvitesCount + pendingJoinRequestsCount + pendingAccessClaimsCount;
   const myMembershipsCount = myMembershipsQuery.data?.length ?? 0;
+  const heroBorderColor = hexToRgba(colors.heroOverlay, 0.1);
+  const heroIconSurface = hexToRgba(colors.heroOverlay, 0.08);
+  const heroIconSurfaceStrong = hexToRgba(colors.heroOverlay, 0.18);
+  const heroButtonSurface = hexToRgba(colors.heroOverlay, 0.12);
 
   useEffect(() => {
     if (!session || hasInitializedDefaultTab.current) {
@@ -329,29 +334,29 @@ export default function CommunitiesScreen() {
               className="flex-1 items-center gap-2 rounded-card border border-tint/30 bg-tint px-3 py-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
+                style={{ backgroundColor: heroIconSurfaceStrong }}>
                 <FontAwesome6 name="plus" size={15} color={colors.onTint} solid />
               </View>
               <Text className="text-[11px] font-black text-on-tint">Grupo</Text>
             </Pressable>
             <Pressable
               onPress={() => router.push('/community-access')}
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              style={({ pressed }) => ({ borderColor: heroBorderColor, opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border px-3 py-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                style={{ backgroundColor: heroIconSurface }}>
                 <FontAwesome6 name="key" size={15} color={colors.heroText} solid />
               </View>
               <Text className="text-[11px] font-black text-hero-text">Código</Text>
             </Pressable>
             <Pressable
               onPress={() => setTab('discover')}
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="flex-1 items-center gap-2 rounded-card border border-white/10 px-3 py-3">
+              style={({ pressed }) => ({ borderColor: heroBorderColor, opacity: pressed ? 0.75 : 1 })}
+              className="flex-1 items-center gap-2 rounded-card border px-3 py-3">
               <View
                 className="h-9 w-9 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                style={{ backgroundColor: heroIconSurface }}>
                 <FontAwesome6 name="magnifying-glass" size={15} color={colors.heroText} solid />
               </View>
               <Text className="text-[11px] font-black text-hero-text">Buscar</Text>
@@ -453,7 +458,7 @@ export default function CommunitiesScreen() {
                       styles.meetupCard,
                       {
                         backgroundColor: colors.hero,
-                        shadowColor: isDark ? '#000' : '#5C4833',
+                        shadowColor: colors.shadow,
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: isDark ? 0.3 : 0.08,
                         shadowRadius: 8,
@@ -461,7 +466,9 @@ export default function CommunitiesScreen() {
                       },
                     ]}>
                     <View style={[styles.datePill, { backgroundColor: colors.heroAccent }]}>
-                      <Text style={styles.datePillText}>{formatMeetupLabel(meetup.startsAt)}</Text>
+                      <Text style={[styles.datePillText, { color: colors.onAccent }]}>
+                        {formatMeetupLabel(meetup.startsAt)}
+                      </Text>
                     </View>
                     <Text style={[styles.meetupTitle, { color: colors.heroText }]} numberOfLines={2}>
                       {meetup.title}
@@ -494,9 +501,7 @@ export default function CommunitiesScreen() {
                               style={({ pressed }) => [
                                 styles.rsvpButton,
                                 {
-                                  backgroundColor: isDark
-                                    ? 'rgba(255,243,228,0.12)'
-                                    : 'rgba(255,248,236,0.16)',
+                                  backgroundColor: heroButtonSurface,
                                   opacity: pressed ? 0.7 : 1,
                                 },
                               ]}>
@@ -513,9 +518,7 @@ export default function CommunitiesScreen() {
                             styles.rsvpButton,
                             {
                               backgroundColor: meetup.viewerIsGoing
-                                ? isDark
-                                  ? 'rgba(255,243,228,0.12)'
-                                  : 'rgba(255,248,236,0.16)'
+                                ? heroButtonSurface
                                 : colors.tint,
                               opacity: pressed ? 0.7 : isMutatingRsvp || !session ? 0.7 : 1,
                             },
@@ -999,7 +1002,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   datePillText: {
-    color: '#1A1410',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.2,

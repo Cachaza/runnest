@@ -1,6 +1,6 @@
 # Mobile Membership And Invites
 
-> Nota operativa del ciclo actual: esta capa sigue siendo válida como infraestructura. En esta iteración solo se cierra QA, se mantiene `community-access` por código y no se amplían invite deep links ni direct community links.
+> Nota operativa del ciclo actual: esta capa sigue siendo válida como infraestructura. En esta iteración se cierra QA de membership y se replantean invite deep links y direct community links dentro del nuevo plan de `https` share centrado en runs.
 
 ## Summary
 
@@ -32,7 +32,7 @@ The main invitation flow should not be email-first.
 - [x] Integration tests for core membership and permission flows
 - [x] Unified membership invalidation/refresh on mobile after membership changes
 - [x] Protected re-entry for `community-access` deep links after auth/onboarding
-- [ ] Invite deep links and direct community deep links still pending implementation
+- [ ] Invite deep links and direct community deep links still pending implementation; they should be planned with the run/access `https` linking slice
 
 ## Product Decision
 
@@ -151,7 +151,9 @@ The user should be able to:
 - membership writes are centralized in a service layer instead of being scattered across router procedures
 - mobile invalidates membership-related queries from one shared helper to avoid stale tabs/detail state
 
-Reusable invite links and private join requests are already in the product layer. The active hardening slice is now largely closed at API and state-sync level; the remaining open item is executing the guided manual QA pass and deciding when to ship future invite/community deep links.
+Reusable invite links and private join requests are already in the product layer. The active hardening slice is now largely closed at API and state-sync level; the remaining open item is executing the guided manual QA pass.
+
+Future invite/community deep links should not be implemented as a standalone membership expansion. They should be reconsidered alongside run share links in [https-linking-plan.md](./https-linking-plan.md), because `/run/<id>` is now the primary WhatsApp acquisition loop.
 
 ## Preset Policy By Community Type
 
@@ -192,7 +194,7 @@ The form presets in mobile and the access-link defaults in API should stay align
 
 Until those routes exist, `community-access` is the only route whitelisted in the protected deep-link parser.
 
-The forward plan for public/shareable `https` links, Universal Links, and invite/community URLs lives in [https-linking-plan.md](./https-linking-plan.md).
+The forward plan for public/shareable `https` links, Universal Links, run URLs, access URLs, and invite/community URLs lives in [https-linking-plan.md](./https-linking-plan.md).
 
 ## QA Scope
 
@@ -215,6 +217,7 @@ Use [mobile-membership-hardening-checklist.md](./mobile-membership-hardening-che
 
 After the current hardening slice is closed, the next product work should prioritize:
 
-- `https` shareable links for access, invite, and community entry flows
+- `run` and `rsvp` as the product core for local crew operations
+- `https` shareable links for run and access entry flows
 - stronger behavior differences between `collaborative` and `managed` communities in run creation and organization
 - notification surfaces and status badges for invites, approvals, rejections, removals, and blocks so the experience is less pull-based

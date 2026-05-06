@@ -1,184 +1,217 @@
-# Product Direction - Próximos 3 Meses
+# Product Direction - Community Operations For Local Running Groups
 
 ## Propósito de este documento
 
-Este documento fija la dirección de producto de AppRunners para los próximos 3 meses.
+Este documento fija la dirección operativa de AppRunners para el ciclo actual.
 Sirve como filtro de decisiones: cualquier feature, refactor o discusión técnica debe poder justificarse contra el objetivo definido aquí.
 
 Si algo no contribuye a este objetivo, no se construye ahora, aunque esté en otros docs del proyecto.
 
-> Nota operativa actual: aunque este documento marca como deseable un onboarding mucho más ligero, en la iteración en curso no se va a tocar `onboarding.tsx` ni el gate actual de perfil. El trabajo inmediato se concentra en coordinación de grupo, RSVP, invitaciones, recuperación de contraseña y push.
+> Nota operativa actual: durante este ciclo se mantiene intacto el gate de auth/onboarding existente. No se toca `onboarding.tsx` ni la estructura de rutas salvo petición explícita.
 
-## Visión a largo plazo (no es el foco de los próximos 3 meses)
+## Tesis
 
-A largo plazo, AppRunners quiere resolver dos problemas reales:
+Los grupos locales de running de 15-80 personas necesitan una herramienta móvil propia para organizar quedadas y miembros.
+WhatsApp es caótico para operar una crew y Strava está pensado para tracking y red global.
 
-- correr solo es aburrido y muchos runners no salen por eso
-- no todo el mundo vive en una ciudad con clubes de running accesibles
+El hueco real es la operativa diaria de la crew:
 
-La visión final es una app donde, estés donde estés, puedas encontrar gente con quien salir a correr sin fricción.
+- publicar quedadas
+- gestionar miembros
+- controlar RSVPs, cupos y waitlist
+- compartir por WhatsApp sin perder el contexto
 
-Esa visión sigue siendo válida y orienta el rumbo, pero no es lo que se construye en los próximos 3 meses.
+Frase de posicionamiento:
 
-## Objetivo de los próximos 3 meses
+> Organiza tu crew de running. Publica quedadas, gestiona miembros y llena tus salidas.
 
-Validar que AppRunners funciona como herramienta principal de coordinación para un grupo real de runners que ya existe offline, sustituyendo o complementando WhatsApp.
+Mensaje frente a Strava:
 
-Frase operativa:
+> Usa Strava para registrar la carrera. Usa AppRunners para organizar la quedada.
 
-> Quiero que un grupo real de 10-30 runners use AppRunners durante 3 meses como su herramienta principal para coordinar quedadas.
+## ICP MVP
 
-## Por qué esta dirección y no la visión completa
+El ICP único del MVP es:
 
-La visión grande (conectar runners desconocidos en cualquier ciudad) tiene un problema serio de huevo y gallina geográfico:
+> Admin u organizador de un grupo informal de running de 15-80 personas que hoy coordina por WhatsApp o Instagram.
 
-- sin masa crítica local, el discovery está vacío
-- sin discovery con contenido, el usuario nuevo no vuelve
-- sin usuarios que vuelvan, no hay masa crítica local
+Anti-ICP explícito para este ciclo:
 
-Resolverlo desde cero requiere meses de trabajo no técnico (marketing local, alianzas, confianza entre desconocidos, seguridad) y no es viable en 3 meses.
+- atletas individuales que quieren tracking
+- clubes federados grandes
+- coaches con producto monetizado
+- creators o influencers con audiencia
+- marcas y eventos profesionales
 
-La estrategia es construir el sustrato primero:
+Coaches, creators y comunidades `managed` quedan en radar, pero fuera del MVP.
 
-- Fase corta: grupos que ya existen offline usan la app
-- Fase media: las quedadas públicas de esos grupos son visibles a otros runners cercanos
-- Fase larga: cuando hay densidad real, el usuario solitario que se baja la app encuentra contenido real al que apuntarse
+## Criterio de éxito MVP
 
-Es la misma visión, ejecutada desde el sustrato hacia arriba en lugar de desde el usuario solitario hacia abajo.
+El MVP tiene éxito si:
 
-## Qué entra en foco
+> 3 admins reales usan AppRunners para organizar sus próximas 4 quedadas cada uno, sin intervención manual del equipo.
 
-### Producto
+No basta con que los usuarios prueben la app. La señal relevante es que admins reales la usen para operar quedadas reales.
 
-- coordinación fluida de quedadas dentro de un grupo conocido
-- RSVP rápido y vista clara de quién va
-- invitar a alguien nuevo al grupo en menos de un minuto
-- notificaciones push reales (sin esto, WhatsApp gana)
-- onboarding mínimo para que personas no técnicas puedan entrar
-- recuperar contraseña funcional
+## Validación previa
 
-### Mentalidad
+Antes de construir más producto nuevo, salvo cerrar hardening, hay que hacer 5-10 entrevistas con admins reales de grupos de 15-80 personas.
 
-- las quedadas se marcan como `public` por defecto cuando tenga sentido, aunque al principio nadie de fuera las vea
-- el grupo es la unidad de crecimiento, no el individuo
-- el usuario de referencia es la persona menos técnica del grupo, no el early adopter
+Hipótesis a validar:
 
-## Qué queda fuera de foco
+- cuál es el dolor más caro: asistencia, nuevos miembros, ruido en el chat, histórico u otro
+- si pagarían por resolverlo o, como mínimo, si instalarían la app y empujarían a su grupo a usarla
+- qué les haría cambiar parte del flujo actual de WhatsApp
+- cómo descubren hoy nuevos runners
 
-Estas cosas siguen existiendo en otros docs y son válidas a futuro, pero no se trabajan ahora:
+Output esperado:
 
-- toda la capa de comunidades `managed`, creators, influencers
-- pagos, suscripciones, tiers de acceso, monetización
-- panel admin separado (`apps/admin`)
-- landing pública independiente (`apps/landing`)
-- deep links `https` completos con Universal Links y App Links
-- chat o DMs dentro de la app
-- discovery anónimo sin login para usuarios completamente fríos
-- features avanzadas de moderación más allá de lo ya implementado
+> Un dolor priorizado, no cuatro.
 
-Si aparece la tentación de añadir "una cosita rápida" para cualquiera de estos frentes, se rechaza.
+Slice 1 es bloqueante para Slice 2. No se debe construir el nuevo core de runs sin validar antes que el dolor existe y es suficientemente caro.
 
-## Roadmap de los 3 meses
+## Core Del Producto
 
-### Mes 1: preparar la app para que aguante un grupo real
+La comunidad es el contenedor. La quedada es la protagonista.
 
-Semana 1: lo crítico para no perder al grupo el primer domingo
-- notificaciones push reales (motor de delivery, no solo preferencias)
-- revisar flujo de crear quedada hasta que sea más rápido que mandar un mensaje en WhatsApp
-- arreglar "olvidé contraseña" con flujo real
+El trabajo existente de membership, invites, access links y join requests se mantiene. El pivote lo refuerza porque da la infraestructura de acceso, permisos y crecimiento alrededor de la comunidad.
 
-Semana 2: que entrar sea trivial
-- onboarding mucho más ligero
-- quitar la obligatoriedad de ciudad desde sugerencias
-- permitir entrar dando lo mínimo y completar perfil después o nunca
-- el test es: una persona de 50+ años con un código tiene que poder entrar sin ayuda
+El core nuevo del pivote es:
 
-Semana 3: pulir RSVP y vista de quién va
-- la pantalla de "quién viene el domingo" tiene que ser instantánea y satisfactoria
-- es el corazón del producto en esta fase
+- `run`: quedada organizada dentro de una comunidad
+- `rsvp`: estado de asistencia por usuario
+- capacity y waitlist automática
+- share `https` por WhatsApp como canal de adquisición
 
-Semana 4: meter al grupo y observar
-- no construir features nuevas
-- probar el flujo completo con 2-3 personas de confianza unos días antes
-- meter al grupo entero
-- observar uso real, no pedir feedback constantemente
+Ver [runs.md](./runs.md) para el diseño de modelo y reglas.
 
-### Mes 2: reaccionar a lo aprendido
+## Qué Entra En Foco
 
-No se planifica con detalle ahora.
-Se planifica el día 25 del mes 1 con datos reales del grupo.
+- cerrar el QA manual pendiente de membership hardening
+- entrevistas con admins reales
+- schema y API de `run` y `rsvp`
+- permisos de creación según `community.mode`
+- lista de próximas quedadas en community detail
+- crear quedada en menos de 30 segundos
+- RSVP en un tap
+- waitlist automática cuando hay cupo
+- link `https://app.apprunners.club/run/<id>` para compartir por WhatsApp
+- fallback web mínimo para runs y access links
+- Universal Links y App Links para el loop de share
 
-Reglas para el mes 2:
+## Qué Queda Fuera De Foco
 
-- arreglar los pain points reales que aparezcan en uso del mes 1
-- empezar a invitar 2-3 personas sueltas externas al grupo (compañero de trabajo, vecino, amigo de un amigo) a quedadas públicas concretas
-- observar si esas personas se atreven a venir y qué necesitan ver para hacerlo
-- esto es el primer experimento real sobre la visión grande, en escala controlada
+Estas cosas no se construyen en el MVP:
 
-### Mes 3: validar transferibilidad
+- tracking GPS o actividades
+- integración con Strava
+- feed social global
+- challenges, segmentos o rankings
+- planes de entrenamiento
+- coaching o monetización `managed`
+- access tiers o pagos
+- marketplace de coaches
+- apps admin o landing completa nuevas
+- web app completa
+- analítica avanzada
+- chat por quedada o comunidad
+- recordatorios automáticos en v1
 
-- intentar meter un segundo grupo en una zona cercana
-- validar si la mecánica funciona fuera del círculo inicial
-- decidir si la hipótesis se sostiene y cómo es el siguiente trimestre
+## Roadmap Ejecutable
 
-## Qué cosas del backlog actual sí entran y cuáles no
+### Slice 0 - Cerrar Lo Abierto
 
-### Sí entran
+Duración estimada: 1-2 semanas.
 
-- cerrar el QA manual pendiente de la capa de membresía (`mobile-membership-hardening-checklist.md`)
-- arreglar "olvidé contraseña"
-- motor real de notificaciones push
-- simplificar el onboarding actual
-- pulir RSVP y creación de quedadas
+- ejecutar manual QA pendiente de [mobile-membership-hardening-checklist.md](./mobile-membership-hardening-checklist.md)
+- cerrar el slice de hardening sin añadir features nuevas a membership
+- no tocar invite deep links ni community deep links todavía
 
-### No entran
+### Slice 1 - Validación Con Admins Reales
 
-- migración a deep links `https` con Universal Links / App Links (`https-linking-plan.md`) más allá de lo mínimo necesario para invitar al grupo por código
-- nuevas apps en el monorepo (`apps/admin`, `apps/landing`) descritas en `monorepo-future-structure.md`
-- features de la fase 3 de `community-vision.md` (entitlements, paid access, premium runs)
-- refactors grandes de archivos monolíticos (`router.ts`, `crew/[id].tsx`) salvo que bloqueen una feature en foco
+Duración estimada: 1-2 semanas, en paralelo a Slice 0.
 
-Los refactors por tamaño de archivo no son prioridad por sí mismos.
-Solo se hacen si la complejidad bloquea construir algo del foco.
+- listar 10-15 admins potenciales
+- hacer 5-10 entrevistas de 15-20 minutos
+- sintetizar dolor priorizado y ajuste de scope
+- tomar gate decision: seguir con la tesis o ajustar antes de codear más
 
-## Reglas de decisión
+### Slice 2 - Runs MVP
+
+Duración estimada: 3-4 semanas.
+
+- schema de `run` y `rsvp` en `packages/db`
+- tRPC `runs.create`, `runs.list`, `runs.get`, `runs.update`, `runs.cancel`
+- tRPC `rsvp.set`, `rsvp.list`
+- permisos por mode: `collaborative` vs `managed`
+- pantalla de próximas quedadas en community detail
+- pantalla de crear quedada
+- pantalla detalle con RSVP y lista de asistentes
+- waitlist automática
+- tests de integración para create, RSVP, cupo y cancel
+
+### Slice 3 - HTTPS Share Y Universal/App Links
+
+Duración estimada: 2-3 semanas.
+
+- decidir dominio canónico, preferiblemente `app.apprunners.club`
+- servir `apple-app-site-association` y `assetlinks.json`
+- configurar Universal Links iOS
+- configurar App Links Android
+- builder de URL canónica para runs
+- parser centralizado para `https` y `apprunners://`
+- fallback mínimo `/run/<id>`
+- fallback mínimo `/access/<code>`
+- QA de WhatsApp en iOS y Android, signed in y signed out
+
+### Slice 4 - Pulido Para Los Primeros 3 Admins
+
+Duración estimada: 2 semanas.
+
+- crear comunidad rápida y primera quedada en menos de 2 minutos
+- copy orientado al admin, no al runner individual
+- empty states útiles
+- compartir comunidad por WhatsApp
+- bug fixes y feedback de los primeros 3 admins
+
+### Slice 5 - Notificaciones Básicas
+
+Se activa cuando los 3 admins lo pidan o el uso real lo haga obvio.
+
+- nuevo RSVP a tu quedada si eres host
+- invite recibida
+- solicitud de acceso para admins
+- recordatorio 24h antes de la quedada, configurable
+
+## Reglas De Decisión
 
 Antes de construir algo nuevo, debe pasar este filtro:
 
-1. ¿Sirve para que el grupo real use la app durante 3 meses? Si no, fuera.
-2. ¿Lo necesita la persona menos técnica del grupo? Si solo lo necesita un power user, baja la prioridad.
-3. ¿Compite directamente con algo que el grupo ya hace en WhatsApp? Si sí, tiene que ser claramente mejor o no se construye.
-4. ¿Es algo que se puede observar en uso real, o es una intuición de diseño? Lo observable tiene prioridad.
+1. ¿Ayuda a 3 admins reales a organizar 4 quedadas cada uno?
+2. ¿Ataca el dolor priorizado por entrevistas, no una intuición?
+3. ¿Hace que WhatsApp sea menos necesario para operar la quedada?
+4. ¿Refuerza runs, RSVP, membership o share links?
+5. ¿Mantiene `managed` como opcionalidad futura sin construirlo ahora?
 
-## Riesgos conocidos
+Si la respuesta no es clara, se aparca.
 
-- **Quemar el grupo con una mala primera experiencia**: el grupo se da una vez. Si la primera semana es mala, no se recupera. De ahí la insistencia en no meterlos hasta que la app aguante un domingo entero.
-- **Planificar el mes 2 antes de tiempo**: lo que aprenda del grupo va a cambiar el plan. Resistir la tentación de cerrar el roadmap completo ahora.
-- **Confundir uso con validación**: que el grupo use la app no valida la visión grande. Solo valida la herramienta de coordinación. Para validar la visión grande hay que provocar el experimento de meses 2 y 3.
-- **Tentación de añadir features "para creators" o "para admin"**: cada cosita en otra dirección aleja del foco. Se rechazan.
-- **Olvidar que el autor es su propio usuario**: usar la app en las quedadas reales propias es la mejor fuente de feedback. No saltarse este canal por pereza.
+## Riesgos Conocidos
 
-## Métricas de éxito a los 3 meses
+- **Coste de switching desde WhatsApp demasiado alto**: validar en Slice 1 antes de seguir construyendo.
+- **Strava añade RSVP o eventos básicos**: mantener foco en operativa fina: roles, invites, access control, capacity y waitlist.
+- **Distracción con `managed` o creators**: regla dura: no tocar hasta tener 3 admins activos en collaborative.
+- **Construir features que los admins no piden**: priorizar por feedback real de los primeros admins.
+- **Universal Links consumen más tiempo del esperado**: asumir 2-3 semanas reales y validar en builds, no en Expo Go.
 
-No son métricas de producto SaaS, son señales cualitativas claras:
+## Relación Con Otros Docs
 
-- el grupo inicial sigue usando la app como herramienta principal en la semana 12
-- al menos una persona externa al grupo ha venido a una quedada gracias a la app
-- existe un segundo grupo, aunque sea pequeño, usándola en otra zona o contexto
-- hay una lista clara de los 3-5 pain points reales que han salido del uso, y un plan para el siguiente trimestre basado en ellos
+Este documento tiene prioridad operativa durante el ciclo actual.
 
-Si las cuatro se cumplen, la dirección es correcta y se escala.
-Si no se cumplen, hay que revisar la hipótesis antes de seguir construyendo.
+- [product-positioning.md](./product-positioning.md): tesis, ICP, anti-ICP y diferenciación.
+- [runs.md](./runs.md): modelo de `run`/`rsvp`, permisos y reglas de waitlist.
+- [community-vision.md](./community-vision.md): modelo conceptual de largo plazo. `managed` se preserva, pero queda fuera de v1.
+- [mobile-membership-and-invites.md](./mobile-membership-and-invites.md): infraestructura de membership e invites ya construida.
+- [https-linking-plan.md](./https-linking-plan.md): `run` share links suben a Phase 1 porque son el loop de adquisición.
+- [monorepo-future-structure.md](./monorepo-future-structure.md): referencia futura si aparecen apps admin o landing completa.
 
-## Relación con otros docs del proyecto
-
-Este documento tiene prioridad operativa sobre el resto durante los próximos 3 meses.
-Los otros docs siguen siendo válidos como visión y arquitectura, pero no marcan el roadmap inmediato:
-
-- `community-vision.md`: define el modelo conceptual y sigue siendo la base. Lo de modos `managed` y creators queda dormido.
-- `mobile-membership-and-invites.md`: la capa de infraestructura ya construida sigue siendo correcta. Solo se cierra el QA pendiente, no se amplía.
-- `mobile-membership-hardening-checklist.md`: ejecutar el QA manual pendiente entra en foco.
-- `https-linking-plan.md`: aplazado. Solo se mantiene `community-access` por código, que basta para invitar al grupo.
-- `monorepo-future-structure.md`: aplazado. No se crean nuevas apps en el monorepo.
-
-Cualquier cambio en este documento debe ser explícito y razonado.
+Cualquier cambio de foco debe ser explícito y razonado.

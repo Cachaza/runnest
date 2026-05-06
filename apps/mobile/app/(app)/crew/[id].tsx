@@ -29,6 +29,7 @@ import {
   modeCommunityCardCopy,
 } from '@/lib/community-labels';
 import { invalidateCommunityMembershipState } from '@/lib/community-membership-cache';
+import { hexToRgba } from '@/lib/colors';
 import { trpc } from '@/lib/trpc';
 
 type TabValue = 'runs' | 'overview' | 'members' | 'chat' | 'manage';
@@ -583,6 +584,8 @@ export default function CrewDetailScreen() {
 
   const previewMeetups = (communityQuery.data?.upcomingMeetups ?? []).slice(0, 3);
   const previewMembers = (communityQuery.data?.members ?? []).slice(0, 5);
+  const heroControlSurface = hexToRgba(colors.heroOverlay, 0.1);
+  const heroAvatarSurface = hexToRgba(colors.heroOverlay, 0.2);
 
   return (
     <ScreenScroll
@@ -596,23 +599,25 @@ export default function CrewDetailScreen() {
               accessibilityLabel="Volver"
               hitSlop={10}
               onPress={() => router.back()}
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="h-9 w-9 items-center justify-center rounded-full bg-black/10">
+              className="h-9 w-9 items-center justify-center rounded-full"
+              style={({ pressed }) => ({ backgroundColor: heroControlSurface, opacity: pressed ? 0.75 : 1 })}>
               <FontAwesome6 name="chevron-left" size={15} color={colors.heroText} />
             </Pressable>
             <Pressable
               accessibilityLabel="Más opciones"
               hitSlop={10}
               onPress={() => (isStaff ? setTab('manage') : undefined)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
-              className="h-9 w-9 items-center justify-center rounded-full bg-black/10">
+              style={({ pressed }) => ({ backgroundColor: heroControlSurface, opacity: pressed ? 0.75 : 1 })}
+              className="h-9 w-9 items-center justify-center rounded-full">
               <FontAwesome6 name="ellipsis-vertical" size={15} color={colors.heroText} solid />
             </Pressable>
           </View>
 
           <View className="items-center pb-4 pt-1">
             <View className="relative">
-              <View className="h-[82px] w-[82px] items-center justify-center rounded-full border border-hero-accent bg-black/20">
+              <View
+                className="h-[82px] w-[82px] items-center justify-center rounded-full border border-hero-accent"
+                style={{ backgroundColor: heroAvatarSurface }}>
                 <Text className="text-[28px] font-black text-hero-text">
                   {initialsForName(community?.name)}
                 </Text>
@@ -639,7 +644,9 @@ export default function CrewDetailScreen() {
                   {community.description}
                 </Text>
 
-                <View className="mt-5 w-full rounded-card border border-hero-accent/40 bg-[#2E2219] p-3">
+                <View
+                  className="mt-5 w-full rounded-card border border-hero-accent/40 p-3"
+                  style={{ backgroundColor: colors.elevatedSurface }}>
                   <View className="flex-row items-center">
                     <HeroStat label="Miembros" value={isMember ? membersCount : '—'} />
                     <View className="h-9 w-px bg-border/40" />

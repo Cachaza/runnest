@@ -1,6 +1,8 @@
 # AppRunners Monorepo
 
-Base inicial para una app social de running con:
+AppRunners es una herramienta móvil de operaciones para crews locales de running: publica quedadas, gestiona miembros y coordina RSVPs sin depender del caos de WhatsApp.
+
+Base inicial para:
 
 - `apps/mobile`: Expo Router con navegación por tabs
 - `apps/api`: Hono sobre Node.js con Better Auth y tRPC

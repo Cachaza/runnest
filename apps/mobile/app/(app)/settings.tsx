@@ -167,7 +167,7 @@ function SettingSwitch({
       <Switch
         disabled={disabled}
         onValueChange={onValueChange}
-        thumbColor={value ? '#FFF8EC' : colors.surface}
+        thumbColor={value ? colors.onTint : colors.surface}
         trackColor={{ false: colors.chip, true: colors.tint }}
         value={value}
       />

@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/ThemeContext';
+import { hexToRgba } from '@/lib/colors';
 
 type TabIconName = React.ComponentProps<typeof FontAwesome6>['name'];
 
@@ -20,7 +21,10 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   const bottomOffset = Math.max(insets.bottom, Platform.select({ ios: 10, default: 10 }) ?? 10);
-  const activeTabColor = isDark ? colors.tint : colors.hero;
+  const activeTabColor = colors.tint;
+  const activeTabBackground = hexToRgba(colors.tint, isDark ? 0.13 : 0.16);
+  const pillBackground = hexToRgba(colors.surface, 0.96);
+  const pillBorder = isDark ? hexToRgba(colors.tint, 0.18) : colors.border;
 
   return (
     <View
@@ -30,10 +34,10 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         style={[
           styles.tabBarPill,
           {
-            backgroundColor: isDark ? 'rgba(26,30,34,0.96)' : 'rgba(255,255,255,0.96)',
-            borderColor: isDark ? 'rgba(199,244,100,0.16)' : colors.border,
-            shadowColor: isDark ? '#000' : colors.hero,
-            shadowOpacity: isDark ? 0.45 : 0.14,
+            backgroundColor: pillBackground,
+            borderColor: pillBorder,
+            shadowColor: colors.shadow,
+            shadowOpacity: isDark ? 0.44 : 0.12,
           },
         ]}>
         {state.routes.map((route, index) => {
@@ -75,9 +79,9 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   styles.tabItem,
                   focused
                     ? {
-                        backgroundColor: isDark ? 'rgba(199,244,100,0.12)' : 'rgba(199,244,100,0.28)',
-                        shadowColor: isDark ? '#000' : colors.hero,
-                        shadowOpacity: isDark ? 0.16 : 0.08,
+                        backgroundColor: activeTabBackground,
+                        shadowColor: colors.shadow,
+                        shadowOpacity: isDark ? 0.16 : 0.06,
                       }
                     : null,
                   { opacity: pressed ? 0.75 : 1 },

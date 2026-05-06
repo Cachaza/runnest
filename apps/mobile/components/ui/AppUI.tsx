@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '@/components/ThemeContext';
+import { hexToRgba } from '@/lib/colors';
 
 type StyledChildrenProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
@@ -89,7 +90,7 @@ export function ScreenHeader({ title }: { title: string }) {
             </View>
           </Pressable>
         ) : null}
-        <Text className="text-[17px] font-bold text-text" numberOfLines={1}>
+        <Text className="font-display text-[17px] text-text" numberOfLines={1}>
           {title}
         </Text>
       </View>
@@ -158,8 +159,8 @@ export function ScreenScroll({
 export function HeroPanel({ body, children, kicker, title }: HeroPanelProps) {
   return (
     <View className="rounded-hero bg-hero p-5">
-      <Text className="text-[11px] font-black uppercase tracking-[0.9px] text-hero-accent">{kicker}</Text>
-      <Text className="mt-3 text-[30px] font-black leading-[33px] text-hero-text">{title}</Text>
+      <Text className="font-display-medium text-[11px] uppercase tracking-[0.9px] text-hero-accent">{kicker}</Text>
+      <Text className="font-display mt-3 text-[30px] leading-[33px] text-hero-text">{title}</Text>
       {body ? <Text className="mt-2 text-[15px] leading-[21px] text-hero-text-muted">{body}</Text> : null}
       {children}
     </View>
@@ -179,7 +180,7 @@ export function SectionHeader({ loading, right, title }: SectionHeaderProps) {
 
   return (
     <View className="mt-3 flex-row items-center justify-between">
-      <Text className="text-[17px] font-black leading-6 text-text">{title}</Text>
+      <Text className="font-display text-[17px] leading-6 text-text">{title}</Text>
       {loading ? <ActivityIndicator color={colors.tint} /> : right}
     </View>
   );
@@ -258,7 +259,7 @@ export function SegmentedTabs<T extends string>({
   options,
   value,
 }: SegmentedTabsProps<T>) {
-  const { isDark } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
 
   return (
     <View className="flex-row gap-1 rounded-full bg-chip p-1">
@@ -276,7 +277,7 @@ export function SegmentedTabs<T extends string>({
             }`}
             style={({ pressed }) => ({
               opacity: pressed ? 0.7 : 1,
-              shadowColor: isActive ? (isDark ? '#000' : '#5C4833') : 'transparent',
+              shadowColor: isActive ? colors.shadow : 'transparent',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: isActive ? (isDark ? 0.3 : 0.08) : 0,
               shadowRadius: 6,
@@ -344,7 +345,7 @@ export function QuickAction({ icon, label, onPress, tone = 'neutral' }: QuickAct
       }`}>
       <View
         className={`h-9 w-9 items-center justify-center rounded-full ${isPrimary ? '' : 'bg-chip'}`}
-        style={isPrimary ? { backgroundColor: 'rgba(255,255,255,0.18)' } : undefined}>
+        style={isPrimary ? { backgroundColor: hexToRgba(colors.heroOverlay, 0.18) } : undefined}>
         <FontAwesome6 name={icon} size={15} color={iconColor} solid />
       </View>
       <Text
@@ -388,7 +389,7 @@ export function CollapsibleCard({
         className="flex-row items-center justify-between gap-3 px-5 py-4">
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="text-[17px] font-black text-text">{title}</Text>
+            <Text className="font-display text-[17px] text-text">{title}</Text>
             {showBadge ? (
               <View className="min-w-[22px] items-center rounded-full bg-tint px-2 py-[3px]">
                 <Text className="text-[11px] font-black text-on-tint">
@@ -421,10 +422,10 @@ export function MetaRow({ items }: MetaRowProps) {
     <View className="flex-row flex-wrap gap-x-5 gap-y-2">
       {items.map((item) => (
         <View key={item.label}>
-          <Text className="text-[11px] font-black uppercase tracking-[0.6px] text-muted-text">
+          <Text className="font-display-medium text-[11px] uppercase tracking-[0.6px] text-muted-text">
             {item.label}
           </Text>
-          <Text className="text-[17px] font-black text-text">{item.value}</Text>
+          <Text className="font-display text-[17px] text-text">{item.value}</Text>
         </View>
       ))}
     </View>

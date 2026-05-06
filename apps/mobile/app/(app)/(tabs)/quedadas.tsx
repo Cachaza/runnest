@@ -12,6 +12,7 @@ import {
   SectionHeader,
 } from '@/components/ui/AppUI';
 import { authClient } from '@/lib/auth-client';
+import { hexToRgba } from '@/lib/colors';
 import { labelForMeetupStyle } from '@/lib/community-labels';
 import { trpc } from '@/lib/trpc';
 
@@ -134,6 +135,7 @@ export default function QuedadasScreen() {
   const publicMeetups = publicMeetupsQuery.data ?? [];
   const viewerMeetupIds = new Set(viewerMeetups.map((m) => m.id));
   const otherPublicMeetups = publicMeetups.filter((m) => !viewerMeetupIds.has(m.id));
+  const heroBorderColor = hexToRgba(colors.heroOverlay, 0.1);
 
   const { onRefresh, refreshing } = usePullToRefresh(async () => {
     await Promise.all([
@@ -177,13 +179,13 @@ export default function QuedadasScreen() {
 
         {session ? (
           <View className="flex-row gap-3">
-            <View className="flex-1 rounded-card border border-white/10 px-4 py-3">
+            <View className="flex-1 rounded-card border px-4 py-3" style={{ borderColor: heroBorderColor }}>
               <Text className="text-[24px] font-black leading-7 text-hero-text">
                 {viewerMeetups.filter((m) => m.viewerIsGoing).length}
               </Text>
               <Text className="mt-1 text-[12px] font-bold text-hero-text-muted">Confirmadas</Text>
             </View>
-            <View className="flex-1 rounded-card border border-white/10 px-4 py-3">
+            <View className="flex-1 rounded-card border px-4 py-3" style={{ borderColor: heroBorderColor }}>
               <Text className="text-[24px] font-black leading-7 text-hero-text">
                 {viewerMeetups.length}
               </Text>

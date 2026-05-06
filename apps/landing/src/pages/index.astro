@@ -2,52 +2,50 @@
 const waitlistEndpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT ?? '/api/waitlist';
 const navLinks = [
   ['#como-funciona', 'Cómo funciona'],
-  ['#comunidades', 'Comunidades'],
   ['#quedadas', 'Quedadas'],
+  ['#tu-crew', 'Tu crew'],
 ];
 const features = [
   {
-    tone: 'teal',
-    title: 'Encuentra comunidades',
-    body: 'Explora clubes y grupos de running por ciudad, ritmo y estilo.',
-    tags: ['Social', '10K Race Prep', 'Long Run'],
-    icon: 'users',
-  },
-  {
-    tone: 'orange',
-    title: 'Apúntate a quedadas',
-    body: 'Descubre salidas cerca de ti y apúntate en un solo toque.',
-    tags: ['5K', '10K', 'Media', 'Maratón'],
+    tone: 'navy',
+    title: 'Crea quedadas en 30 segundos',
+    body: 'Punto de encuentro, ritmo, cupo y nivel. Todo en un formulario. Sin copiar y pegar en cinco chats.',
+    tags: ['Social', 'Workout', 'Long Run', 'Intervals'],
     icon: 'calendar',
   },
   {
-    tone: 'teal',
-    title: 'Conoce runners afines',
-    body: 'Conecta con personas que comparten tu ritmo, objetivos y motivación.',
-    tags: ['Por ritmo', 'Por zona', 'Por objetivo'],
-    icon: 'runner',
+    tone: 'lime',
+    title: 'RSVP y waitlist automática',
+    body: 'Los miembros se apuntan con un toque. Cuando se llena el cupo, la waitlist se gestiona sola.',
+    tags: ['RSVP', 'Cupo', 'Waitlist'],
+    icon: 'users',
+  },
+  {
+    tone: 'navy',
+    title: 'Comparte por WhatsApp',
+    body: 'Genera un link de tu quedada para compartir. Los nuevos se apuntan directamente, sin preguntar en el chat.',
+    tags: ['Link', 'WhatsApp', 'Sin caos'],
+    icon: 'share',
   },
 ];
 const trustChips = [
   ['mail', 'Sin spam', 'Solo novedades'],
   ['key', 'Acceso anticipado', 'Sé de los primeros'],
-  ['heart', 'Producto hecho', 'por y para runners'],
+  ['heart', 'Hecho por runners', 'para admins de crews'],
 ];
 const checklist = [
-  'Todo en una sola app',
-  'Fácil de usar y pensada para correr',
-  'Privacidad y comunidad, siempre primero',
+  'Crea quedadas en menos de 30 segundos',
+  'RSVP y waitlist automática sin esfuerzo',
+  'Comparte por WhatsApp sin perder el contexto',
 ];
 const footerChips = [
   ['mail', 'Sin spam, lo prometemos'],
   ['shield', 'Acceso anticipado asegurado'],
   ['heart', 'Hecho por y para la comunidad runner'],
 ];
-// Placeholders para las capturas reales de la app.
-// Reemplaza el src por la ruta final en /public/screenshots/*.png cuando las tengas.
 const heroShots = [
-  { src: '/screenshots/home.png', alt: 'Pantalla principal de Runnest' },
-  { src: '/screenshots/communities.png', alt: 'Lista de comunidades en Runnest' },
+  { src: '/screenshots/home.png', alt: 'Pantalla principal de AppRunners' },
+  { src: '/screenshots/communities.png', alt: 'Lista de comunidades en AppRunners' },
 ];
 const showcaseShots = [
   { src: '/screenshots/community-detail.png', alt: 'Detalle de una comunidad' },
@@ -61,24 +59,24 @@ const showcaseShots = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#10383e" />
+    <meta name="theme-color" content="#15324A" />
     <meta
       name="description"
-      content="Runnest conecta a runners por ritmo y zona. Descubre comunidades, apúntate a quedadas y encuentra tu gente para correr."
+      content="AppRunners es la app para organizar tu crew de running. Publica quedadas, gestiona miembros y llena tus salidas."
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap"
       rel="stylesheet"
     />
-    <title>Runnest · Tu sitio para correr</title>
+    <title>AppRunners · Organiza tu crew de running</title>
   </head>
   <body>
     <div class="page">
       <header class="nav">
-        <a class="brand" href="#top" aria-label="Runnest">
+        <a class="brand" href="#top" aria-label="AppRunners">
           <span class="brand__badge" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="17" cy="4" r="2" />
@@ -87,7 +85,7 @@ const showcaseShots = [
               <path d="m13 13 3 2 3-1" />
             </svg>
           </span>
-          <span class="brand__name">Runnest</span>
+          <span class="brand__name">AppRunners</span>
         </a>
         <nav class="nav__links" aria-label="Navegación principal">
           {navLinks.map(([href, label]) => <a href={href}>{label}</a>)}
@@ -99,12 +97,12 @@ const showcaseShots = [
         <div class="hero__content">
           <span class="pill">Próximamente</span>
           <h1>
-            Tu sitio para correr,
-            <span class="accent">muy pronto.</span>
+            Tu crew merece algo mejor
+            <span class="accent">que un grupo de WhatsApp.</span>
           </h1>
           <p class="hero__lead">
-            Runnest conecta a runners por ritmo y zona. Descubre comunidades, apúntate
-            a quedadas y encuentra tu gente para correr.
+            Publica quedadas, gestiona miembros y controla el RSVP sin el caos del chat.
+            Pensado para admins de crews locales de 15 a 80 personas.
           </p>
 
           <form class="capture" id="apuntate" action={waitlistEndpoint} method="post" data-waitlist-form novalidate>
@@ -177,8 +175,8 @@ const showcaseShots = [
               {f.icon === 'calendar' && (
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3.5v3M16 3.5v3" /></svg>
               )}
-              {f.icon === 'runner' && (
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="5" r="2" /><path d="M14.5 9.5 11 12l-2 3 2 4-3 4" /><path d="M8 11 5 13l2 3" /><path d="m12 14 3 1.5 3-1" /></svg>
+              {f.icon === 'share' && (
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>
               )}
             </span>
             <h3>{f.title}</h3>
@@ -200,13 +198,12 @@ const showcaseShots = [
         </div>
 
         <div class="showcase__copy">
-          <p class="eyebrow eyebrow--muted">La app que te acompaña</p>
-          <h2>
-            Diseñada para <span class="accent">runners reales</span> como tú.
+          <p class="eyebrow eyebrow--muted">Diseñada para admins de crews</p>
+          <h2 id="tu-crew">
+            Para que coordinar tu grupo <span class="highlight">deje de ser un trabajo.</span>
           </h2>
           <p>
-            Publica quedadas, crea tu comunidad, sigue tu ritmo y encuentra tu sitio para
-            correr.
+            Usa Strava para registrar la carrera. Usa AppRunners para organizar la quedada.
           </p>
           <ul class="check">
             {checklist.map((item) => (
@@ -225,7 +222,7 @@ const showcaseShots = [
         <div class="final__inner">
           <div class="final__copy">
             <span class="pill">Próximamente</span>
-            <h2>Sé de los primeros en formar parte.</h2>
+            <h2>Sé de los primeros en organizar tu crew con AppRunners.</h2>
             <p>Apúntate y te avisaremos en cuanto abramos el acceso anticipado.</p>
           </div>
           <form class="final__form" action={waitlistEndpoint} method="post" data-waitlist-form novalidate>
@@ -335,22 +332,23 @@ const showcaseShots = [
 
 <style>
   :root {
-    --background: #f6ebd8;
-    --surface: #fff9f0;
-    --hero: #10383e;
-    --hero-2: #0b2c31;
-    --hero-text: #fff8f2;
-    --hero-text-muted: #c9d7d8;
-    --hero-accent: #ffb36b;
-    --border: #e8d6ba;
-    --text: #20201c;
-    --muted-text: #745f48;
-    --tint: #e65f22;
-    --tint-dark: #c94f18;
-    --on-tint: #fff8ec;
-    --success: #4f7d52;
-    --chip: #f2dfc2;
-    --card: #fffdf6;
+    --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --background: #F6F7FB;
+    --surface: #FFFFFF;
+    --hero: #15324A;
+    --hero-2: #0B1C2B;
+    --hero-text: #FFFFFF;
+    --hero-text-muted: #D9E6F2;
+    --hero-accent: #C7F464;
+    --border: #E1E7EF;
+    --text: #15324A;
+    --muted-text: #5C6B7E;
+    --tint: #C7F464;
+    --tint-dark: #B3DF4A;
+    --on-tint: #15324A;
+    --success: #6C8F25;
+    --chip: #F1FAD1;
+    --card: #FFFFFF;
   }
 
   * {
@@ -375,6 +373,11 @@ const showcaseShots = [
 
   h1, h2, h3, h4, p {
     margin: 0;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 800;
   }
 
   a {
@@ -405,6 +408,7 @@ const showcaseShots = [
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    font-family: var(--font-display);
     font-weight: 800;
     font-size: 1.05rem;
     text-decoration: none;
@@ -417,8 +421,8 @@ const showcaseShots = [
     width: 32px;
     height: 32px;
     border-radius: 10px;
-    background: var(--tint);
-    color: var(--on-tint);
+    background: var(--hero);
+    color: var(--tint);
   }
 
   .nav__links {
@@ -427,7 +431,7 @@ const showcaseShots = [
     margin-inline: auto;
     font-size: 0.92rem;
     font-weight: 500;
-    color: #3a362e;
+    color: var(--muted-text);
   }
 
   .nav__links a {
@@ -436,7 +440,7 @@ const showcaseShots = [
   }
 
   .nav__links a:hover {
-    color: var(--tint);
+    color: var(--hero);
   }
 
   .nav__cta {
@@ -465,7 +469,7 @@ const showcaseShots = [
   .btn--primary {
     background: var(--tint);
     color: var(--on-tint);
-    box-shadow: 0 10px 24px rgba(230, 95, 34, 0.28);
+    box-shadow: 0 10px 24px rgba(199, 244, 100, 0.3);
   }
 
   .btn--primary:hover,
@@ -488,7 +492,7 @@ const showcaseShots = [
     position: relative;
     border-radius: 22px;
     padding: 1.5rem 1.25rem 2rem;
-    background: radial-gradient(120% 90% at 0% 0%, #14444b 0%, var(--hero) 45%, var(--hero-2) 100%);
+    background: radial-gradient(120% 90% at 0% 0%, #1e4a6e 0%, var(--hero) 45%, var(--hero-2) 100%);
     color: var(--hero-text);
     overflow: hidden;
     isolation: isolate;
@@ -499,8 +503,8 @@ const showcaseShots = [
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(60% 40% at 100% 0%, rgba(255, 179, 107, 0.15), transparent 60%),
-      radial-gradient(40% 40% at 10% 100%, rgba(255, 255, 255, 0.05), transparent 60%);
+      radial-gradient(60% 40% at 100% 0%, rgba(199, 244, 100, 0.12), transparent 60%),
+      radial-gradient(40% 40% at 10% 100%, rgba(255, 255, 255, 0.04), transparent 60%);
     z-index: 0;
     pointer-events: none;
   }
@@ -517,6 +521,7 @@ const showcaseShots = [
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
     color: var(--hero-accent);
+    font-family: var(--font-display);
     font-size: 0.66rem;
     font-weight: 800;
     letter-spacing: 0.14em;
@@ -535,6 +540,10 @@ const showcaseShots = [
     color: var(--tint);
   }
 
+  .highlight {
+    color: var(--hero);
+  }
+
   .hero__lead {
     margin-bottom: 1.4rem;
     color: var(--hero-text-muted);
@@ -545,7 +554,7 @@ const showcaseShots = [
   .capture {
     padding: 1rem;
     border-radius: 16px;
-    background: rgba(10, 35, 39, 0.55);
+    background: rgba(7, 18, 28, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(6px);
   }
@@ -591,7 +600,7 @@ const showcaseShots = [
   }
 
   .capture__input input::placeholder {
-    color: rgba(255, 248, 242, 0.55);
+    color: rgba(255, 255, 255, 0.45);
   }
 
   .capture__foot {
@@ -681,7 +690,7 @@ const showcaseShots = [
     display: block;
     aspect-ratio: 9 / 19.5;
     object-fit: cover;
-    background: #1a1410; /* placeholder mientras no llega la imagen */
+    background: #0B1C2B;
   }
 
   .shot--front {
@@ -718,12 +727,12 @@ const showcaseShots = [
     margin-bottom: 0.85rem;
   }
 
-  .feature__icon--teal {
+  .feature__icon--navy {
     background: var(--hero);
-    color: var(--hero-accent);
+    color: var(--tint);
   }
 
-  .feature__icon--orange {
+  .feature__icon--lime {
     background: var(--tint);
     color: var(--on-tint);
   }
@@ -831,7 +840,7 @@ const showcaseShots = [
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: rgba(79, 125, 82, 0.15);
+    background: rgba(108, 143, 37, 0.15);
     color: var(--success);
     flex-shrink: 0;
   }
@@ -840,7 +849,7 @@ const showcaseShots = [
   .final {
     border-radius: 22px;
     padding: 1.75rem 1.25rem;
-    background: radial-gradient(120% 90% at 100% 0%, #14444b, var(--hero) 60%, var(--hero-2));
+    background: radial-gradient(120% 90% at 100% 0%, #1e4a6e, var(--hero) 60%, var(--hero-2));
     color: var(--hero-text);
     margin-bottom: 1rem;
   }

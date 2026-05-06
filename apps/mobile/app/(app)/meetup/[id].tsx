@@ -566,10 +566,10 @@ export default function MeetupDetailScreen() {
             <View
               className="flex-row items-center gap-2 rounded-full border p-1.5"
               style={{
-                backgroundColor: isDark ? colors.surface : '#FFFDF8',
+                backgroundColor: colors.elevatedSurface,
                 borderColor: isDark ? colors.border : colors.tint,
                 borderWidth: isDark ? 1 : 1.5,
-                shadowColor: '#000',
+                shadowColor: colors.shadow,
                 shadowOffset: { height: 3, width: 0 },
                 shadowOpacity: isDark ? 0.1 : 0.14,
                 shadowRadius: 10,
@@ -579,7 +579,7 @@ export default function MeetupDetailScreen() {
                 className="flex-1 justify-center rounded-full border px-3"
                 style={{
                   backgroundColor: colors.inputBg,
-                  borderColor: isDark ? colors.border : '#F0D4AA',
+                  borderColor: isDark ? colors.border : colors.accentBorder,
                   height: 44,
                 }}>
                 <TextInput

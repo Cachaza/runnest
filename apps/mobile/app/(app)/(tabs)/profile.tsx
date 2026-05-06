@@ -115,7 +115,7 @@ export default function ProfileScreen() {
           </View>
           <View
             className="absolute bottom-1 right-1 h-[15px] w-[15px] rounded-full border-2"
-            style={{ backgroundColor: '#5EA88A', borderColor: colors.background }}
+            style={{ backgroundColor: colors.success, borderColor: colors.background }}
           />
         </View>
 
